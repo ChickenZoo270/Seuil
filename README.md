@@ -4,7 +4,7 @@
 
 Une démo interactive accompagne le code iOS dans `Preview/`. Elle se lance avec `npm start` depuis ce sous-dossier, puis s’ouvre sur `http://127.0.0.1:4317`. Les tests de son moteur se lancent avec `npm test`. **Elle simule les autorisations ; elle ne bloque aucune autre app et n’exécute pas l’IA Apple.** Voir `docs/AUDIT.md` pour le bilan réel des vérifications.
 
-Une intention avant d’ouvrir une app protégée. Projet natif SwiftUI, iOS 26 minimum, avec trois extensions Screen Time. Sources créées sous Windows : **la compilation iOS et les essais sur appareil ne sont pas encore effectués**.
+Une intention avant d’ouvrir une app protégée. Projet natif SwiftUI, iOS 26 minimum, avec trois extensions Screen Time. **Compilation iOS sans signature réussie sur macOS GitHub le 18 septembre 2026 ; essais sur iPhone physique encore à effectuer.** Les 22 tests web et les tests Swift passent dans [la première vérification distante](https://github.com/ChickenZoo270/Seuil/actions/runs/35349246757).
 
 ## Ce qui est implémenté
 
@@ -38,7 +38,7 @@ open Intention.xcodeproj
 5. Sélectionner un iPhone iOS 26+, activer son mode développeur, puis lancer le schéma Intention.
 6. Pour TestFlight, demander l’autorisation **Family Controls Distribution pour l’app et chacune des trois extensions** auprès d’Apple. Avoir un abonnement développeur ne vaut pas approbation de cette capacité. L’icône est fournie ; compléter les informations de distribution avant archivage.
 
-Sans Mac personnel, le workflow fourni peut compiler sur un runner macOS GitHub une fois ce dossier publié comme racine de dépôt. Il ne signe pas et ne distribue pas l’app ; un Mac distant ou un pipeline de signature est encore nécessaire pour produire un IPA installable/TestFlight. Aucun dépôt n’a été créé et aucun workflow distant n’a été lancé dans cette session. Le runner doit proposer un Xcode avec SDK 26.5+.
+Sans Mac personnel, le workflow fourni compile sur un runner macOS GitHub. Le projet est importé dans le dépôt privé `ChickenZoo270/Seuil` et sa première vérification distante est réussie. Le workflow ne signe pas et ne distribue pas l’app ; un pipeline de signature ou un Mac distant est encore nécessaire pour produire un IPA installable/TestFlight. Le runner doit proposer un Xcode avec SDK 26.5+. Voir `docs/IPHONE-NEXT-STEPS.md` pour les étapes demandant le compte Apple.
 
 ## Architecture
 
@@ -59,7 +59,7 @@ Le texte de l’intention reste en mémoire puis est effacé après autorisation
 
 Voir `docs/TEST-PLAN.md` pour les essais appareil et `docs/OS-CONSTRAINTS.md` pour les références Apple.
 
-Les tests Swift sont fournis, **pas encore exécutés** : aucun compilateur Swift ni Xcode n’est disponible dans l’environnement de création. Les contrôles locaux de structure ne prouvent pas que l’app compile. Le MVP n’est pas annoncé comme prêt pour TestFlight.
+Les tests Swift et la compilation iOS sans signature ont réussi sur GitHub Actions. Le workflow `Simulator launch smoke test` vérifie séparément l’installation, le lancement et le relancement en simulateur et conserve les captures pendant sept jours. Il ne teste ni l’autorisation Temps d’écran ni le blocage réel d’autres apps. Le MVP n’est pas annoncé comme prêt pour TestFlight : la signature, les capacités de distribution et les essais physiques restent nécessaires.
 
 Les sessions représentent du temps écoulé, pas 15 minutes de consommation mesurée. Les rappels DeviceActivity sont gérés par iOS : Apple les déclenche lorsque l’appareil est utilisé après la fin de l’intervalle ; ne pas promettre une précision à la seconde. Tester notamment veille, fermeture forcée, redémarrage et changement d’heure. L’autorisation individuelle reste révocable par l’utilisateur : ce n’est pas un verrou inviolable.
 
