@@ -1,0 +1,52 @@
+name: Simulator launch smoke test
+on:
+  push:
+    paths: ['.github/workflows/simulator.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode and generate project
+        run: |
+          XCODE_PATH=$(find /Applications -maxdepth 1 -name 'Xcode*.app' | sort -V | tail -1)
+          test -n "$XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen generate
+      - name: Build, install and launch in iPhone simulator
+        run: |
+          set -euo pipefail
+          mkdir -p simulator-evidence
+          xcrun simctl list devices available --json > simulator-evidence/devices.json
+          DEVICE_ID=$(jq -r '[.devices | to_entries[] | select(.key | contains("iOS-26")) | .value[] | select(.isAvailable and (.name | startswith("iPhone")))] | sort_by(if .name == "iPhone 16 Pro" then 0 else 1 end) | .[0].udid // empty' simulator-evidence/devices.json)
+          test -n "$DEVICE_ID"
+          xcodebuild -project Intention.xcodeproj -scheme Intention -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath SimulatorBuild CODE_SIGNING_ALLOWED=NO build > simulator-evidence/build.log 2>&1
+          xcrun simctl boot "$DEVICE_ID"
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" SimulatorBuild/Build/Products/Debug-iphonesimulator/Intention.app
+          xcrun simctl launch "$DEVICE_ID" com.example.intention | tee simulator-evidence/launch.log
+          APP_PID=$(awk '/com.example.intention:/ {print $NF}' simulator-evidence/launch.log)
+          test -n "$APP_PID"
+          sleep 8
+          kill -0 "$APP_PID"
+          xcrun simctl io "$DEVICE_ID" screenshot simulator-evidence/launch.png
+          xcrun simctl terminate "$DEVICE_ID" com.example.intention
+          xcrun simctl launch "$DEVICE_ID" com.example.intention | tee simulator-evidence/relaunch.log
+          APP_PID=$(awk '/com.example.intention:/ {print $NF}' simulator-evidence/relaunch.log)
+          test -n "$APP_PID"
+          sleep 5
+          kill -0 "$APP_PID"
+          xcrun simctl io "$DEVICE_ID" screenshot simulator-evidence/relaunch.png
+      - name: Preserve simulator evidence (not a Screen Time device test)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-launch-evidence
+          path: simulator-evidence/
+          retention-days: 7
