@@ -10,6 +10,16 @@ Le catalogue web reste fictif, sans détection des installations. Côté iPhone,
 
 Dépôt privé `ChickenZoo270/Seuil`, commit `8f80be8a7f63353cf2df0a3143d997253c28b649` : [GitHub Actions, exécution 35349246757](https://github.com/ChickenZoo270/Seuil/actions/runs/35349246757), statut **Success**. Les trois tâches `preview-tests`, `core-tests` et `ios-build` ont réussi. Le premier import via l’éditeur web avait créé un workflow vide ; corrigé, l’import suivant a réussi. Les avertissements de CI concernent la transition du runtime Node des actions v4 ; ils ne constituent pas des tests métier échoués.
 
+### Lancement natif et contrôle d’accessibilité ciblé
+
+Le [premier test simulateur](https://github.com/ChickenZoo270/Seuil/actions/runs/35390900479) a réussi : compilation, installation, lancement, fermeture puis relancement, avec contrôle que le processus reste vivant et captures PNG. Le journal identifie Xcode 26.6, SDK simulateur 26.5 et une destination iPhone 17 Pro / iOS 26.4 ; **ce n’est pas un test de l’iPhone 16 Pro sous iOS 26.7 de l’utilisateur**. Les fichiers téléchargés correspondent au SHA-256 publié par GitHub : `453cb021b23313805c2050e575346cd1391ec7bcfc8350ff284530d516fb9606`.
+
+La capture expose une erreur de conteneur App Group sur cette version non signée. Ce résultat est conservé comme limite de configuration, pas dissimulé ni présenté comme une protection fonctionnelle. Aucun test du sélecteur, de l’autorisation ou du rebloquage réel n’a été réalisé en simulateur.
+
+La revue visuelle a repéré un bouton principal au texte trop sombre et des textes secondaires trop pâles. Correction native : couleurs explicites pour les boutons et le texte secondaire, adaptées aux deux apparences. Contrastes calculés des couleurs nominales selon WCAG 2.1 : bouton clair **8,24:1**, bouton sombre **9,80:1**, texte secondaire sur le fond clair **5,59:1**, sur le fond sombre **9,57:1** (objectif 4,5:1). Ce contrôle ne couvre pas les états désactivés, tous les fonds système, VoiceOver ou Dynamic Type. [Tests et compilation du correctif réussis](https://github.com/ChickenZoo270/Seuil/actions/runs/35391502977).
+
+Le [second test simulateur, après correction](https://github.com/ChickenZoo270/Seuil/actions/runs/35391503074), est également **réussi** (commit `d7b661d`). La capture de lancement a été inspectée : texte blanc lisible sur le bouton, textes secondaires assombris, erreur de stockage partagé toujours explicite. Archive vérifiée : `3cfd551d4adabbaa2bd3c9e1e1c8b71209e51495d2969c03a7a0a4ffec901127`. Les captures sont des preuves de lancement et d’apparence initiale, **pas de protection Temps d’écran opérationnelle**. Le thème sombre n’a pas été contrôlé visuellement dans ce passage.
+
 ## Conclusion
 
 **Audit de préparation à la diffusion : 45/100, diffusion bloquée tant que signature et essais iPhone ne sont pas terminés.** Ce score est une appréciation qualitative, pas une mesure de fiabilité. La démo web est exécutable et ses parcours principaux ont été testés. La version native iOS compile sans signature, mais n’est pas validée sur iPhone. Il serait incorrect d’affirmer que le blocage réel de TikTok/X est déjà testé ou que l’ensemble est sans bug.
