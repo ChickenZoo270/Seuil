@@ -1,7 +1,7 @@
 name: Simulator launch smoke test
 on:
   push:
-    paths: ['.github/workflows/simulator.yml']
+    paths: ['.github/workflows/simulator.yml', 'App/**', 'Shared/**', 'Core/**', 'Extensions/**', 'project.yml']
   workflow_dispatch:
 permissions:
   contents: read
