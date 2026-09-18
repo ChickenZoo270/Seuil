@@ -4,17 +4,21 @@
 
 Catalogue de démonstration étendu à 20 apps, recherche par nom/catégorie et choix conservés pendant le filtrage. **22 tests automatisés réussis**, dont ajout/sauvegarde/session de chacune des 20 apps, recherche avec casse et accents, compatibilité des sauvegardes antérieures et absence de doublons. Recherche successive de Facebook puis Instagram, sélection et persistance après rechargement vérifiées dans le navigateur. Le plugin Frontend Design a guidé la simplification des titres, la suppression de décorations et le passage à une palette bleu pétrole.
 
-Le catalogue web reste fictif, sans détection des installations. Côté iPhone, `FamilyActivityPicker` reste le sélecteur natif et `Label(ApplicationToken)` affiche les apps sélectionnées : aucune liste de marques codée en dur ne limite les choix. La compilation et les tests iPhone restent non effectués.
+Le catalogue web reste fictif, sans détection des installations. Côté iPhone, `FamilyActivityPicker` reste le sélecteur natif et `Label(ApplicationToken)` affiche les apps sélectionnées : aucune liste de marques codée en dur ne limite les choix. La compilation distante est désormais réussie ; les essais sur iPhone restent non effectués.
+
+### Vérification distante du 18 septembre
+
+Dépôt privé `ChickenZoo270/Seuil`, commit `8f80be8a7f63353cf2df0a3143d997253c28b649` : [GitHub Actions, exécution 35349246757](https://github.com/ChickenZoo270/Seuil/actions/runs/35349246757), statut **Success**. Les trois tâches `preview-tests`, `core-tests` et `ios-build` ont réussi. Le premier import via l’éditeur web avait créé un workflow vide ; corrigé, l’import suivant a réussi. Les avertissements de CI concernent la transition du runtime Node des actions v4 ; ils ne constituent pas des tests métier échoués.
 
 ## Conclusion
 
-**La démo web est exécutable et ses parcours principaux ont été testés. La version native iOS est un MVP source, non compilé et non validé sur iPhone.** Il serait incorrect d’affirmer que le blocage réel de TikTok/X est déjà testé ou que l’ensemble est sans bug.
+**Audit de préparation à la diffusion : 45/100, diffusion bloquée tant que signature et essais iPhone ne sont pas terminés.** Ce score est une appréciation qualitative, pas une mesure de fiabilité. La démo web est exécutable et ses parcours principaux ont été testés. La version native iOS compile sans signature, mais n’est pas validée sur iPhone. Il serait incorrect d’affirmer que le blocage réel de TikTok/X est déjà testé ou que l’ensemble est sans bug.
 
 ## Vérifications effectuées
 
 | Vérification | Résultat |
 | --- | --- |
-| Tests automatisés du moteur web | 18 réussis, 0 échec, via `node --test Preview/tests/engine.test.mjs` |
+| Tests automatisés du moteur web | 22 réussis, 0 échec, localement et en CI |
 | Syntaxe des scripts du navigateur et du serveur | Vérifiée avec Node |
 | Intention précise dans le navigateur | Session de 15 min, bonne app sélectionnée, budget +15 |
 | Défilement sans objectif | Refus, budget inchangé |
@@ -30,8 +34,9 @@ Le catalogue web reste fictif, sans détection des installations. Côté iPhone,
 | Serveur de démonstration | Pages et modules servis en 200 ; accès hors liste autorisée refusé en 404 |
 | Entitlements Apple | XML lisible, clés Family Controls et App Groups présentes |
 | Icône | PNG opaque 1024 × 1024 généré et référencé dans le catalogue d’assets |
-| Tests Swift | 8 tests fournis, non exécutés |
-| Compilation iOS et tests Screen Time | Non effectués : Xcode/Mac indisponible |
+| Tests Swift | Tâche `core-tests` réussie sur macOS GitHub ; suite de 8 tests |
+| Compilation iOS | App et trois extensions compilées sans signature, tâche `ios-build` réussie |
+| Tests Screen Time sur appareil physique | Non effectués ; bloquants avant diffusion |
 
 La dictée réelle n’a pas été testée : aucun microphone n’a été ouvert ni autorisé pendant l’audit. La version native utilise la dictée du clavier iOS ; la démo utilise, s’il existe, le service vocal du navigateur avec un repli écrit.
 
@@ -49,7 +54,7 @@ La dictée réelle n’a pas été testée : aucun microphone n’a été ouvert
 
 ## Risques restants et conditions de diffusion
 
-1. Compiler avec un SDK iOS 26.5+ et corriger tout diagnostic réel de Xcode. La relecture de code n’est pas une compilation.
+1. Conserver la compilation iOS et les tests verts à chaque changement. La première compilation distante a réussi ; elle ne prouve pas le fonctionnement des services Screen Time sur appareil.
 2. Effectuer les essais iPhone du plan de tests : autorisations, rebloquage réel, fermeture forcée, veille, redémarrage, changement d’heure et erreurs de stockage.
 3. Tester la classification Apple Intelligence sur des formulations françaises variées. Le modèle et la grammaire locale peuvent se tromper ; aucune règle ne prouve la sincérité de l’intention.
 4. Valider VoiceOver, Dynamic Type et mode sombre dans l’app native.
