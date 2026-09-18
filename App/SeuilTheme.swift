@@ -11,6 +11,12 @@ enum SeuilTheme {
     static let accent = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark ? UIColor(red: 0.62, green: 0.80, blue: 0.89, alpha: 1) : UIColor(red: 0.14, green: 0.33, blue: 0.41, alpha: 1)
     })
+    static let secondaryInk = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.68, green: 0.78, blue: 0.84, alpha: 1) : UIColor(red: 0.30, green: 0.39, blue: 0.43, alpha: 1)
+    })
+    static let onAccent = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(red: 0.07, green: 0.12, blue: 0.15, alpha: 1) : .white
+    })
 }
 
 struct SeuilMark: View {

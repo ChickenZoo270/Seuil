@@ -23,11 +23,11 @@ struct ContentView: View {
                             SeuilMark()
                             Text("seuil.").font(.system(size: 30, weight: .semibold, design: .rounded))
                             Spacer()
-                            Text("Ton espace").font(.caption).foregroundStyle(.secondary)
+                            Text("Ton espace").font(.caption).foregroundStyle(SeuilTheme.secondaryInk)
                         }.padding(.bottom, 22)
                         Text("Reprends la main.").font(.largeTitle.weight(.semibold)).tracking(-1)
                         Text("Décris ce que tu viens faire. Une session dure 15 minutes.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(SeuilTheme.secondaryInk)
                     }
                     if !access.authorized {
                         GroupBox {
@@ -35,6 +35,7 @@ struct ContentView: View {
                                 Text("Active ta protection").font(.headline)
                                 Text("Seuil utilise Temps d’écran pour protéger les apps que tu choisis.")
                                 Button("Autoriser Temps d’écran") { Task { await access.authorize() } }
+                                    .foregroundStyle(SeuilTheme.onAccent)
                                     .buttonStyle(.borderedProminent)
                             }.frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -51,8 +52,9 @@ struct ContentView: View {
                                             .overlay(Circle().stroke(SeuilTheme.accent.opacity(0.25), lineWidth: 1))
                                     }
                                     Text("Retourne dans cette app. Elle sera rebloquée à la fin de la session.")
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(SeuilTheme.secondaryInk)
                                     Button("J’ai terminé · rebloquer") { access.endSession() }
+                                        .foregroundStyle(SeuilTheme.onAccent)
                                         .buttonStyle(.borderedProminent)
                                 }.frame(maxWidth: .infinity)
                             }
@@ -60,18 +62,18 @@ struct ContentView: View {
                             intentionSection
                         }
                         Text("\(Budget.used(access.state.receipts, now: Date())) / 45 min accordées sur les dernières 24 h")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
                         Text("Chaque session réserve 15 minutes, même si tu la termines plus tôt.")
-                            .font(.footnote).foregroundStyle(.secondary)
+                            .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
                     }
                     if !access.message.isEmpty {
                         Text(access.message).padding().frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
                             .accessibilityLabel("Résultat : \(access.message)")
                     }
-                    if !source.isEmpty { Text(source).font(.caption).foregroundStyle(.secondary) }
+                    if !source.isEmpty { Text(source).font(.caption).foregroundStyle(SeuilTheme.secondaryInk) }
                     Text("Ton intention reste sur cet iPhone. Tu gardes la possibilité de désactiver la protection dans Temps d’écran.")
-                        .font(.footnote).foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
                 }.padding(24)
             }
             .background(SeuilTheme.paper)
@@ -109,10 +111,10 @@ struct ContentView: View {
                 }.disabled(busy || access.state.session != nil)
             }
             if access.state.applications.isEmpty {
-                Text("Facebook, Instagram, TikTok, jeux… Choisis les apps présentes sur ton iPhone dans le sélecteur Apple.").foregroundStyle(.secondary)
+                Text("Facebook, Instagram, TikTok, jeux… Choisis les apps présentes sur ton iPhone dans le sélecteur Apple.").foregroundStyle(SeuilTheme.secondaryInk)
             }
             Text("La liste vient de ton appareil. Ouvre une catégorie pour choisir les apps individuellement.")
-                .font(.footnote).foregroundStyle(.secondary)
+                .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
             ForEach(Array(access.state.applications), id: \.self) { token in
                 Button {
                     target = token
@@ -132,7 +134,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Pourquoi ouvrir cette app ?").font(.title2.weight(.semibold))
             Text("Par exemple : « Je veux comprendre comment connecter Supabase à mon app. »")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
             TextEditor(text: $intention)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 110).padding(8)
@@ -140,9 +142,10 @@ struct ContentView: View {
                 .accessibilityLabel("Ton intention")
                 .disabled(busy)
             Text("Écris ou utilise le micro du clavier pour dicter, puis relis avant de valider.")
-                .font(.footnote).foregroundStyle(.secondary)
-            Text("\(intention.count)/600 caractères").font(.caption).foregroundStyle(.secondary)
+                .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+            Text("\(intention.count)/600 caractères").font(.caption).foregroundStyle(SeuilTheme.secondaryInk)
             Button(busy ? "Analyse en cours…" : "Valider mon intention") { evaluate() }
+                .foregroundStyle(SeuilTheme.onAccent)
                 .buttonStyle(.borderedProminent).controlSize(.large)
                 .disabled(busy || target == nil || intention.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || intention.count > Policy.maxCharacters)
             if busy {
