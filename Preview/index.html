@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f3ec">
+  <title>Seuil — Reprends la main.</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="/" aria-label="Seuil, accueil"><svg viewBox="0 0 32 36" aria-hidden="true"><path d="M6 32V16a10 10 0 0 1 20 0v16M16 32h14"/></svg>seuil<span class="brand-dot">.</span></a><span class="edition">Un peu de recul avant d’ouvrir.</span><span class="preview-pill">Prototype interactif</span></header>
+  <main class="layout">
+    <section class="editorial" aria-label="L’esprit de Seuil">
+      <h1>Reprends<br>la main.</h1>
+      <p class="intro">Entre l’envie d’ouvrir une app et le geste,<br class="desktop-break"> il y a un petit espace. Reprends-le.</p>
+      <div class="editorial-note"><p>Garde les tutos, les conversations et les découvertes.<br>Accorde-leur une intention et un temps précis.</p></div>
+      <p class="technical-note">Cette démo simule les décisions et le minuteur.<br>Le blocage d’autres apps appartient à la version iPhone.</p>
+    </section>
+    <section class="app-shell" aria-label="Essayer Seuil">
+      <div class="app-top"><span class="mini-brand">seuil.</span><span class="local-badge"><span></span> Ton espace</span></div>
+      <div id="home">
+        <div class="app-heading"><h2>Pourquoi ouvrir<br>cette app ?</h2><p>Prends un instant pour le dire.</p></div>
+        <div class="section-label"><h3>Apps protégées</h3><button id="manage" class="text-button">Modifier</button></div>
+        <div id="apps" class="apps" role="group" aria-label="App à ouvrir"></div>
+        <form id="intent-form">
+          <label class="input-label" for="intention">Mon intention</label>
+          <div class="input-wrap"><textarea id="intention" rows="3" maxlength="600" placeholder="Je veux comprendre comment connecter Supabase à mon app…" required></textarea><div class="input-bottom"><button type="button" id="dictate" class="voice-button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3M8 22h8"/></svg>Dicter</button><span id="characters">0 / 600</span></div></div>
+          <p id="voice-status" class="helper" role="status"></p>
+          <div class="suggestions"><span>À essayer</span><button type="button" data-example="Je veux comprendre comment connecter Supabase à mon app">Apprendre quelque chose ↗</button><button type="button" data-example="Je m’ennuie, je veux scroller">Juste scroller ↗</button></div>
+          <button id="submit" class="primary" type="submit">Valider mon intention</button>
+        </form>
+      </div>
+      <div id="session" hidden>
+        <h2>Garde le cap.</h2><p id="session-app" class="session-app"></p>
+        <div class="timer-ring"><div><span id="timer" aria-label="Temps restant">15:00</span><p>PUIS RETOUR À L’ESSENTIEL</p></div></div>
+        <p class="session-note">Ta session est ouverte dans cette démo.<br>Consacre-la à ce que tu es venu chercher.</p>
+        <button class="primary" id="end-session">J’ai terminé <span aria-hidden="true">✓</span></button>
+        <button class="text-button expiry-test" id="expire-session">Tester la fin des 15 minutes</button>
+      </div>
+      <div id="result" class="result" role="status" aria-live="polite" hidden></div>
+      <div class="budget"><div><span>Ton temps, avec intention</span><span id="budget-label">0 / 45 min</span></div><div class="budget-track"><div id="budget-bar"></div></div><p>Sur les dernières 24 h · 15 min réservées par session</p></div>
+      <div class="app-footer"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8" width="12" height="9" rx="2"/><path d="M7 8V5a3 3 0 0 1 6 0v3"/></svg>Intention non enregistrée · règles locales dans cette démo</div>
+    </section>
+  </main>
+  <footer class="site-footer"><span>Ton attention t’appartient.</span><button id="reset" class="text-button">Réinitialiser la démo</button></footer>
+  <dialog id="settings" aria-labelledby="settings-title"><form method="dialog"><div class="dialog-top"><h2 id="settings-title">Quelles apps<br>te prennent du temps ?</h2><button id="close-settings" class="close" type="button" aria-label="Fermer">×</button></div><p>Sur iPhone, tu choisiras parmi les apps proposées par Apple sur ton appareil. Ici, explore un catalogue d’exemples.</p><label class="search-label" for="app-search">Rechercher une app</label><input id="app-search" type="search" placeholder="Facebook, Instagram…" autocomplete="off"><p id="selection-count" class="helper" role="status"></p><div id="choices"></div><div class="dialog-actions"><button id="save-settings" class="primary" value="save">Enregistrer mes choix</button><p class="helper">La démo ne détecte ni ne bloque les apps du téléphone.</p></div></form></dialog>
+</body>
+</html>
