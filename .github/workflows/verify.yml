@@ -1,0 +1,42 @@
+name: Verify iPhone MVP
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test the preview decision engine
+        run: node --test Preview/tests/*.test.mjs
+      - name: Validate browser script syntax
+        run: node --check Preview/app.mjs
+  core-tests:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test decision rules
+        run: swift test
+  ios-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest installed Xcode
+        run: |
+          XCODE_PATH=$(find /Applications -maxdepth 1 -name 'Xcode*.app' | sort -V | tail -1)
+          test -n "$XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+      - name: Compile app and three extensions without signing
+        run: xcodebuild -project Intention.xcodeproj -scheme Intention -destination 'generic/platform=iOS' -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build
