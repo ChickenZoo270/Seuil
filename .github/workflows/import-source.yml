@@ -1,1 +1,22 @@
-
+name: Import Seuil sources
+on:
+  push:
+    paths: ['.github/workflows/import-source.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify and unpack original source archive
+        run: |
+          echo '47f32c42f2804a00ae1497e0db78636aa014abca526319b1ab84607e96fd41e1  seuil-source.zip' | sha256sum --check
+          unzip -q -o seuil-source.zip
+          git add .gitignore Package.swift project.yml README.md App Configuration Core docs Extensions Preview Shared Tests
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Import Seuil iOS MVP and tested web preview'
+          git push
