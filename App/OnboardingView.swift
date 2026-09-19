@@ -51,7 +51,7 @@ struct OnboardingView: View {
     private var content: some View {
         switch step {
         case .welcome:
-            SeuilMark().scaleEffect(1.6).padding(.bottom, 12)
+            SeuilMark().scaleEffect(1.6, anchor: .topLeading).frame(width: 56, height: 56, alignment: .topLeading).padding(.top, 4)
             heading("Reprends la main sur ton téléphone.")
             paragraph("Seuil verrouille les apps que tu ouvres sans cesse. Chaque déblocage se mérite, pour que tu choisisses vraiment ce que tu fais de ton temps.")
         case .hours:
