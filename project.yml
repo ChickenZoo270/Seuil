@@ -1,6 +1,6 @@
 name: Intention
 options:
-  bundleIdPrefix: com.example.intention
+  bundleIdPrefix: com.chickenzoo.seuil
   deploymentTarget:
     iOS: "26.0"
 packages:
@@ -14,7 +14,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
-    INTENTION_APP_GROUP: group.com.example.intention
+    INTENTION_APP_GROUP: group.com.chickenzoo.seuil
     GENERATE_INFOPLIST_FILE: NO
 targetTemplates:
   Extension:
@@ -42,7 +42,7 @@ targets:
         embed: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.intention
+        PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Configuration/Intention.entitlements
     info:
@@ -60,7 +60,7 @@ targets:
     sources: [Extensions/ShieldConfiguration]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.intention.shieldconfiguration
+        PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil.shieldconfiguration
     info:
       path: Configuration/ShieldConfiguration-Info.plist
       properties:
@@ -75,7 +75,7 @@ targets:
       - package: IntentionCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.intention.shieldaction
+        PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil.shieldaction
     info:
       path: Configuration/ShieldAction-Info.plist
       properties:
@@ -90,7 +90,7 @@ targets:
       - package: IntentionCore
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.example.intention.monitor
+        PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil.monitor
     info:
       path: Configuration/Monitor-Info.plist
       properties:
