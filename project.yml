@@ -25,6 +25,7 @@ targetTemplates:
     settings:
       base:
         APPLICATION_EXTENSION_API_ONLY: YES
+        TARGETED_DEVICE_FAMILY: "1"
         SKIP_INSTALL: YES
         CODE_SIGN_ENTITLEMENTS: Configuration/Intention.entitlements
 targets:
@@ -45,6 +46,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Configuration/Intention.entitlements
     info:
@@ -67,6 +69,7 @@ targets:
     info:
       path: Configuration/ShieldConfiguration-Info.plist
       properties:
+        CFBundleDisplayName: Seuil
         IntentionAppGroup: $(INTENTION_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-configuration-service
@@ -82,6 +85,7 @@ targets:
     info:
       path: Configuration/ShieldAction-Info.plist
       properties:
+        CFBundleDisplayName: Seuil
         IntentionAppGroup: $(INTENTION_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
@@ -97,6 +101,7 @@ targets:
     info:
       path: Configuration/Monitor-Info.plist
       properties:
+        CFBundleDisplayName: Seuil
         IntentionAppGroup: $(INTENTION_APP_GROUP)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
