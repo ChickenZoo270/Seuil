@@ -121,6 +121,48 @@ final class SeuilUITests: XCTestCase {
         XCTAssertFalse(save.waitForExistence(timeout: 2))
     }
 
+    func testPauseChallengeUnlocksAfterCountdown() {
+        let app = launch(onboarded: true)
+        app.tabBars.buttons["Réglages"].tap()
+        selectChallenge("Pause respiration", in: app)
+        app.buttons["Facile"].tap()
+        app.buttons["settings.tryChallenge"].tap()
+
+        let proceed = app.buttons["Continuer"]
+        XCTAssertTrue(proceed.waitForExistence(timeout: timeout))
+        XCTAssertFalse(proceed.isEnabled, "locked during the pause")
+        let enabled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: proceed)
+        wait(for: [enabled], timeout: 20)
+        proceed.tap()
+        XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: timeout))
+        app.buttons["Moyen"].tap()
+        selectChallenge("Calcul mental", in: app)
+    }
+
+    func testReasonChallengeAcceptsConcreteAndRefusesScrolling() {
+        let app = launch(onboarded: true)
+        app.tabBars.buttons["Réglages"].tap()
+        selectChallenge("Motif valable", in: app)
+        app.buttons["settings.tryChallenge"].tap()
+
+        let editor = app.textViews["Ton motif"]
+        XCTAssertTrue(editor.waitForExistence(timeout: timeout))
+        editor.tap()
+        editor.typeText("Je m'ennuie, je veux juste scroller")
+        app.buttons["Valider mon motif"].tap()
+        XCTAssertTrue(app.staticTexts["Ça ressemble à du défilement sans objectif. Refusé."].waitForExistence(timeout: 30))
+
+        editor.tap()
+        editor.press(forDuration: 1.2)
+        if app.menuItems["Tout sélectionner"].waitForExistence(timeout: 2) { app.menuItems["Tout sélectionner"].tap() }
+        else if app.menuItems["Select All"].waitForExistence(timeout: 2) { app.menuItems["Select All"].tap() }
+        editor.typeText(XCUIKeyboardKey.delete.rawValue)
+        editor.typeText("Répondre au message de Léa pour samedi soir")
+        app.buttons["Valider mon motif"].tap()
+        XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: 30))
+        selectChallenge("Calcul mental", in: app)
+    }
+
     private func selectChallenge(_ title: String, in app: XCUIApplication) {
         let option = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
         XCTAssertTrue(option.waitForExistence(timeout: timeout))
