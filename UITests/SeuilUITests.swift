@@ -130,7 +130,8 @@ final class SeuilUITests: XCTestCase {
         XCTAssertFalse(save.isEnabled, "a routine without apps cannot be saved")
         XCTAssertTrue(app.staticTexts["Se termine le lendemain matin."].exists)
         XCTAssertTrue(app.switches["Mode strict"].exists)
-        app.switches["Bloquer toutes les apps"].tap()
+        // Tapping a Form row's centre misses the control; tap the switch itself.
+        app.switches["Bloquer toutes les apps"].switches.firstMatch.tap()
         XCTAssertTrue(save.isEnabled, "blocking everything needs no app list")
         app.buttons["Annuler"].tap()
         XCTAssertFalse(save.waitForExistence(timeout: 2))
@@ -148,6 +149,48 @@ final class SeuilUITests: XCTestCase {
         app.buttons["timer.start"].tap()
         XCTAssertTrue(app.buttons["commit.hold"].waitForExistence(timeout: timeout))
         XCTAssertTrue(app.switches["Mode strict"].exists)
+    }
+
+    func testPauseChallengeUnlocksAfterCountdown() {
+        let app = launch(onboarded: true)
+        openSettings(app)
+        selectChallenge("Pause respiration", in: app)
+        app.buttons["Facile"].tap()
+        app.buttons["settings.tryChallenge"].tap()
+
+        let proceed = app.buttons["Continuer"]
+        XCTAssertTrue(proceed.waitForExistence(timeout: timeout))
+        XCTAssertFalse(proceed.isEnabled, "locked during the pause")
+        let enabled = expectation(for: NSPredicate(format: "isEnabled == true"), evaluatedWith: proceed)
+        wait(for: [enabled], timeout: 20)
+        proceed.tap()
+        XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: timeout))
+        app.buttons["Moyen"].tap()
+        selectChallenge("Calcul mental", in: app)
+    }
+
+    func testReasonChallengeAcceptsConcreteAndRefusesScrolling() {
+        let app = launch(onboarded: true)
+        openSettings(app)
+        selectChallenge("Motif valable", in: app)
+        app.buttons["settings.tryChallenge"].tap()
+
+        let editor = app.textViews["Ton motif"]
+        XCTAssertTrue(editor.waitForExistence(timeout: timeout))
+        editor.tap()
+        editor.typeText("Je m'ennuie, je veux juste scroller")
+        app.buttons["Valider mon motif"].tap()
+        XCTAssertTrue(app.staticTexts["Ça ressemble à du défilement sans objectif. Refusé."].waitForExistence(timeout: 30))
+
+        editor.tap()
+        editor.press(forDuration: 1.2)
+        if app.menuItems["Tout sélectionner"].waitForExistence(timeout: 2) { app.menuItems["Tout sélectionner"].tap() }
+        else if app.menuItems["Select All"].waitForExistence(timeout: 2) { app.menuItems["Select All"].tap() }
+        editor.typeText(XCUIKeyboardKey.delete.rawValue)
+        editor.typeText("Répondre au message de Léa pour samedi soir")
+        app.buttons["Valider mon motif"].tap()
+        XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: 30))
+        selectChallenge("Calcul mental", in: app)
     }
 
     private func openSettings(_ app: XCUIApplication) {
