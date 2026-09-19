@@ -1,4 +1,5 @@
 import SwiftUI
+import IntentionCore
 
 /// A hand-drawn vintage cinema-ticket look for the emergency pass.
 /// Reuses HoldToCommitButton (TimerView.swift), PageScaffold and glassCard (SettingsComponents.swift / DesignSystem.swift).
