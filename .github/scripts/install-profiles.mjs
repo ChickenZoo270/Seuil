@@ -124,9 +124,15 @@ for (const [target, bundleIdentifier] of Object.entries(TARGETS)) {
   const isCiProfile = / \(CI \d+\)$/.test(profile.attributes.name);
   if (missingEntitlements(profile).length > 0 && !isCiProfile) {
     console.log(`${target}: "${profile.attributes.name}" lacks ${missingEntitlements(profile).join(", ")}; regenerating.`);
-    const fresh = await regenerate(profile);
-    fresh.relationships = profile.relationships;
-    profile = fresh;
+    try {
+      const fresh = await regenerate(profile);
+      fresh.relationships = profile.relationships;
+      profile = fresh;
+    } catch (error) {
+      const capabilities = await bundleCapabilities(profile).catch(() => "unreadable");
+      problems.push(`${bundleIdentifier}: "${profile.attributes.name}" lacks ${missingEntitlements(profile).join(", ")}; regeneration refused (${error.message.split("\n")[0]}). App ID capabilities: ${capabilities}`);
+      continue;
+    }
   }
   const missing = missingEntitlements(profile);
   if (missing.length > 0) {
