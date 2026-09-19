@@ -98,8 +98,10 @@ struct OnboardingView: View {
             .buttonStyle(.borderedProminent).controlSize(.large)
             .foregroundStyle(SeuilTheme.onAccent)
             .disabled(step == .goals && chosenGoals.isEmpty)
+            .accessibilityIdentifier("onboarding.primary")
             if step == .apps || step == .permissions {
                 Button("Plus tard", action: finish).font(.subheadline)
+                    .accessibilityIdentifier("onboarding.later")
             }
         }
         .padding(.top, 12)
@@ -144,6 +146,7 @@ struct OnboardingView: View {
 
     private func heading(_ text: String) -> some View {
         Text(text).font(.largeTitle.weight(.semibold)).tracking(-0.8).fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("onboarding.heading")
     }
 
     private func paragraph(_ text: String) -> some View {

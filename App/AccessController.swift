@@ -43,9 +43,12 @@ final class AccessController: ObservableObject {
                     finished.append(session.id)
                     current.session = nil
                 }
-                if let focus = current.focus, focus.endsAt <= now { finished.append(focus.id) }
+                if let focus = current.focus, focus.endsAt <= now {
+                    finished.append(focus.id)
+                    current.focus = nil
+                }
                 let previousRoutines = current.activeRoutineIDs
-                Shielding.reconcileRoutines(&current, now: now)
+                Shielding.reconcileRoutines(&current, at: now)
                 if authorized {
                     // Reblock before persisting so write failure cannot leave access open.
                     Shielding.apply(current, now: now)
@@ -56,6 +59,9 @@ final class AccessController: ObservableObject {
             if !finished.isEmpty { center.stopMonitoring(finished.map { .init($0) }) }
             if authorized, !state.rules.isEmpty, !center.activities.contains(DailyMonitoring.activity) {
                 try DailyMonitoring.restart(for: state, center: center)
+            }
+            if authorized, !RoutineMonitoring.isRegistered(state.routines, center: center) {
+                try RoutineMonitoring.restart(for: state.routines, center: center)
             }
         } catch { message = "Impossible de charger la protection : \(error.localizedDescription)" }
     }

@@ -116,8 +116,22 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MonitorExtension
+  SeuilUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Intention
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil.uitests
+        TEST_TARGET_NAME: Intention
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
 schemes:
   Intention:
     build:
       targets:
         Intention: all
+    test:
+      targets: [SeuilUITests]

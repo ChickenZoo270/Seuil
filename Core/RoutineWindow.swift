@@ -4,6 +4,7 @@ import Foundation
 /// Weekdays follow `Calendar`: 1 = Sunday … 7 = Saturday.
 public struct RoutineWindow: Codable, Equatable, Sendable {
     public static let minimumMinutes = 15
+    public static let dayMinutes = 24 * 60
     public static let allWeekdays: Set<Int> = Set(1...7)
 
     public var startMinute: Int
@@ -60,5 +61,38 @@ public struct RoutineWindow: Codable, Equatable, Sendable {
         if days == [2, 3, 4, 5, 6] { return "En semaine" }
         if days == [1, 7] { return "Le week-end" }
         return displayOrder.filter(days.contains).compactMap { shortDayNames[$0] }.joined(separator: " ")
+    }
+
+    /// A midnight-free piece of the window as registered with DeviceActivity.
+    public struct SchedulePart: Equatable, Sendable {
+        public let suffix: String
+        public let startMinute: Int
+        /// `dayMinutes` means the end of the day (23:59:59).
+        public let endMinute: Int
+        /// Minutes before the scheduled end at which the real boundary happens (0 = none).
+        public let warningMinutes: Int
+    }
+
+    /// DeviceActivity handles midnight poorly and refuses intervals under 15 minutes:
+    /// overnight windows are split at midnight, and a short piece is padded while its
+    /// interval warning fires at the real boundary. The end of day is 23:59:59, one
+    /// second short of a whole minute, hence the extra minute of padding there.
+    public var scheduleParts: [SchedulePart] {
+        let minimum = Self.minimumMinutes, day = Self.dayMinutes
+        guard crossesMidnight else {
+            return [SchedulePart(suffix: "a", startMinute: startMinute, endMinute: endMinute, warningMinutes: 0)]
+        }
+        var parts: [SchedulePart] = []
+        let eveningLength = day - startMinute
+        if eveningLength > minimum {
+            parts.append(SchedulePart(suffix: "a", startMinute: startMinute, endMinute: day, warningMinutes: 0))
+        } else {
+            parts.append(SchedulePart(suffix: "a", startMinute: day - minimum - 1, endMinute: day, warningMinutes: eveningLength))
+        }
+        if endMinute > 0 {
+            let end = max(endMinute, minimum)
+            parts.append(SchedulePart(suffix: "b", startMinute: 0, endMinute: end, warningMinutes: end - endMinute))
+        }
+        return parts
     }
 }

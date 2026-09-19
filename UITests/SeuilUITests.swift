@@ -1,0 +1,138 @@
+import XCTest
+
+/// Flows that do not need Screen Time, which the simulator cannot grant.
+final class SeuilUITests: XCTestCase {
+    private let timeout: TimeInterval = 10
+
+    override func setUp() {
+        continueAfterFailure = false
+    }
+
+    private func launch(onboarded: Bool) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-seuil.onboarded", onboarded ? "YES" : "NO"]
+        app.launch()
+        return app
+    }
+
+    func testOnboardingWalksThroughEveryStep() {
+        let app = launch(onboarded: false)
+        let primary = app.buttons["onboarding.primary"]
+        let heading = app.staticTexts["onboarding.heading"]
+
+        XCTAssertTrue(heading.waitForExistence(timeout: timeout))
+        XCTAssertTrue(heading.label.contains("Reprends la main"))
+        primary.tap()
+
+        XCTAssertTrue(heading.label.contains("Combien de temps"))
+        XCTAssertTrue(app.staticTexts["4 h"].exists, "default is 4 hours a day")
+        primary.tap()
+
+        // 4 h a day for the 55 years left at 25: 9.2 years.
+        XCTAssertTrue(heading.label.contains("9,2 ans"), heading.label)
+        primary.tap()
+
+        XCTAssertTrue(heading.label.contains("récupérer"))
+        XCTAssertFalse(primary.isEnabled, "a goal is required")
+        app.buttons["Mieux dormir"].tap()
+        XCTAssertTrue(primary.isEnabled)
+        primary.tap()
+
+        XCTAssertTrue(heading.label.contains("mériter"))
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Phrase à recopier")).firstMatch.tap()
+        primary.tap()
+
+        XCTAssertTrue(heading.label.contains("autorisations"))
+        app.buttons["onboarding.later"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Réglages"].waitForExistence(timeout: timeout))
+    }
+
+    func testMathChallengeCanBeSolved() {
+        let app = launch(onboarded: true)
+        app.tabBars.buttons["Réglages"].tap()
+        selectChallenge("Calcul mental", in: app)
+        app.buttons["settings.tryChallenge"].tap()
+
+        let first = app.staticTexts["math.problem.0"]
+        XCTAssertTrue(first.waitForExistence(timeout: timeout))
+        var index = 0
+        while app.staticTexts["math.problem.\(index)"].exists {
+            let problem = app.staticTexts["math.problem.\(index)"].label
+            let field = app.textFields["math.answer.\(index)"]
+            field.tap()
+            field.typeText(String(Self.solve(problem)))
+            index += 1
+        }
+        XCTAssertGreaterThan(index, 0)
+        app.buttons["challenge.validate"].tap()
+        XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: timeout))
+    }
+
+    func testWrongMathAnswerGivesNewProblems() {
+        let app = launch(onboarded: true)
+        app.tabBars.buttons["Réglages"].tap()
+        selectChallenge("Calcul mental", in: app)
+        app.buttons["settings.tryChallenge"].tap()
+
+        let first = app.staticTexts["math.problem.0"]
+        XCTAssertTrue(first.waitForExistence(timeout: timeout))
+        var index = 0
+        while app.staticTexts["math.problem.\(index)"].exists {
+            let field = app.textFields["math.answer.\(index)"]
+            field.tap()
+            field.typeText("-1")
+            index += 1
+        }
+        app.buttons["challenge.validate"].tap()
+        XCTAssertTrue(app.staticTexts["Au moins une réponse est fausse. Voici de nouveaux calculs."].waitForExistence(timeout: timeout))
+        XCTAssertFalse(app.staticTexts["settings.challengeResult"].exists)
+    }
+
+    func testTypingChallengeCanBeSolved() {
+        let app = launch(onboarded: true)
+        app.tabBars.buttons["Réglages"].tap()
+        selectChallenge("Phrase à recopier", in: app)
+        app.buttons["settings.tryChallenge"].tap()
+
+        let phrase = app.staticTexts["typing.phrase"]
+        XCTAssertTrue(phrase.waitForExistence(timeout: timeout))
+        let text = phrase.label.trimmingCharacters(in: CharacterSet(charactersIn: "«» "))
+        let input = app.textFields["typing.input"]
+        input.tap()
+        input.typeText(text)
+        app.buttons["Valider"].tap()
+        XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: timeout))
+        selectChallenge("Calcul mental", in: app)
+    }
+
+    func testRoutineTemplateNeedsAppsBeforeSaving() {
+        let app = launch(onboarded: true)
+        app.tabBars.buttons["Routines"].tap()
+        let template = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Coucher")).firstMatch
+        XCTAssertTrue(template.waitForExistence(timeout: timeout))
+        template.tap()
+
+        let save = app.buttons["Enregistrer"]
+        XCTAssertTrue(save.waitForExistence(timeout: timeout))
+        XCTAssertFalse(save.isEnabled, "a routine without apps cannot be saved")
+        XCTAssertTrue(app.staticTexts["Se termine le lendemain matin."].exists)
+        XCTAssertTrue(app.switches["Mode strict"].exists)
+        app.buttons["Annuler"].tap()
+        XCTAssertFalse(save.waitForExistence(timeout: 2))
+    }
+
+    private func selectChallenge(_ title: String, in app: XCUIApplication) {
+        let option = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
+        XCTAssertTrue(option.waitForExistence(timeout: timeout))
+        option.tap()
+    }
+
+    /// Solves "a + b", "a × b" and "a × b − c" as shown by the math challenge.
+    static func solve(_ problem: String) -> Int {
+        let text = problem.replacingOccurrences(of: "=", with: "")
+        let numbers = text.components(separatedBy: CharacterSet.decimalDigits.inverted).compactMap(Int.init)
+        if text.contains("+") { return numbers[0] + numbers[1] }
+        if text.contains("−") { return numbers[0] * numbers[1] - numbers[2] }
+        return numbers[0] * numbers[1]
+    }
+}

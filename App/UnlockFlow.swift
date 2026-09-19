@@ -43,16 +43,8 @@ struct UnlockFlow: View {
         .background(SeuilTheme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
     }
 
-    @ViewBuilder
     private var challenge: some View {
-        let difficulty = state.preferences.difficulty
-        let passed = { onGranted(minutes) }
-        switch state.preferences.challenge {
-        case .math: MathChallengeView(difficulty: difficulty, onPassed: passed)
-        case .typing: TypingChallengeView(difficulty: difficulty, onPassed: passed)
-        case .pause: PauseChallengeView(difficulty: difficulty, onPassed: passed)
-        case .reason: ReasonChallengeView(minutes: minutes, onPassed: passed)
-        }
+        ChallengeView(preferences: state.preferences, minutes: minutes) { onGranted(minutes) }
     }
 
     private func blockReason(rule: AppRule?, now: Date) -> String {

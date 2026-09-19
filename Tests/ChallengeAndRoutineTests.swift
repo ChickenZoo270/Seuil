@@ -91,4 +91,28 @@ final class RoutineWindowTests: XCTestCase {
         XCTAssertEqual(RoutineWindow.daysLabel([1, 3]), "Mar Dim")
         XCTAssertEqual(RoutineWindow(startMinute: 540, endMinute: 720, weekdays: [1, 7]).summary, "09:00 – 12:00 · Le week-end")
     }
+
+    func testDaytimeWindowIsOnePart() {
+        let work = RoutineWindow(startMinute: 540, endMinute: 720, weekdays: [2])
+        XCTAssertEqual(work.scheduleParts, [.init(suffix: "a", startMinute: 540, endMinute: 720, warningMinutes: 0)])
+    }
+    func testOvernightWindowSplitsAtMidnight() {
+        let night = RoutineWindow(startMinute: 22 * 60, endMinute: 7 * 60, weekdays: [1])
+        XCTAssertEqual(night.scheduleParts, [
+            .init(suffix: "a", startMinute: 1320, endMinute: 1440, warningMinutes: 0),
+            .init(suffix: "b", startMinute: 0, endMinute: 420, warningMinutes: 0),
+        ])
+    }
+    func testShortPiecesArePaddedWithWarnings() {
+        // 23:50 → 00:05: both pieces are under 15 minutes.
+        let late = RoutineWindow(startMinute: 23 * 60 + 50, endMinute: 5, weekdays: [1])
+        let parts = late.scheduleParts
+        XCTAssertEqual(parts[0], .init(suffix: "a", startMinute: 1424, endMinute: 1440, warningMinutes: 10))
+        XCTAssertEqual(parts[1], .init(suffix: "b", startMinute: 0, endMinute: 15, warningMinutes: 10))
+        for part in parts { XCTAssertGreaterThanOrEqual(part.endMinute - part.startMinute, RoutineWindow.minimumMinutes) }
+    }
+    func testWindowEndingAtMidnightHasNoMorningPart() {
+        let evening = RoutineWindow(startMinute: 21 * 60, endMinute: 0, weekdays: [2])
+        XCTAssertEqual(evening.scheduleParts.map(\.suffix), ["a"])
+    }
 }

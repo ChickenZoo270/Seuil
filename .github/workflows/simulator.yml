@@ -1,14 +1,14 @@
 name: Simulator launch smoke test
 on:
   push:
-    paths: ['.github/workflows/simulator.yml', 'App/**', 'Shared/**', 'Core/**', 'Extensions/**', 'project.yml']
+    paths: ['.github/workflows/simulator.yml', 'App/**', 'Shared/**', 'Core/**', 'Extensions/**', 'UITests/**', 'project.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   simulator:
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode and generate project
@@ -43,6 +43,12 @@ jobs:
           sleep 5
           kill -0 "$APP_PID"
           xcrun simctl io "$DEVICE_ID" screenshot simulator-evidence/relaunch.png
+      - name: Run UI tests (onboarding, challenges, routines)
+        run: |
+          set -euo pipefail
+          DEVICE_ID=$(jq -r '[.devices | to_entries[] | select(.key | contains("iOS-26")) | .value[] | select(.isAvailable and (.name | startswith("iPhone")))] | sort_by(if .name == "iPhone 16 Pro" then 0 else 1 end) | .[0].udid // empty' simulator-evidence/devices.json)
+          # Ad hoc signing keeps the App Group entitlement, so shared settings persist.
+          xcodebuild test -project Intention.xcodeproj -scheme Intention             -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath UITestBuild             -resultBundlePath simulator-evidence/UITests.xcresult             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= 2>&1 | tee simulator-evidence/uitests.log | grep -E "Test Case|error:|failed|passed|TEST (SUCCEEDED|FAILED)"
       - name: Preserve simulator evidence (not a Screen Time device test)
         if: always()
         uses: actions/upload-artifact@v4

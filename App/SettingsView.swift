@@ -4,6 +4,8 @@ import IntentionCore
 
 struct SettingsView: View {
     @ObservedObject var access: AccessController
+    @State private var tryingChallenge = false
+    @State private var challengeResult = ""
 
     var body: some View {
         Form {
@@ -22,6 +24,9 @@ struct SettingsView: View {
                     ForEach(Difficulty.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                Button("Essayer le défi") { challengeResult = ""; tryingChallenge = true }
+                    .accessibilityIdentifier("settings.tryChallenge")
+                if !challengeResult.isEmpty { Text(challengeResult).font(.footnote).accessibilityIdentifier("settings.challengeResult") }
             } header: {
                 Text("Mériter un déblocage")
             } footer: {
@@ -43,6 +48,20 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Réglages")
+        .sheet(isPresented: $tryingChallenge) {
+            NavigationStack {
+                ScrollView {
+                    ChallengeView(preferences: access.state.preferences, minutes: Policy.defaultUnlockMinutes) {
+                        tryingChallenge = false
+                        challengeResult = "Défi réussi. C’est ce qui t’attendra avant chaque déblocage."
+                    }
+                    .padding(24)
+                }
+                .navigationTitle(access.state.preferences.challenge.title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fermer") { tryingChallenge = false } } }
+            }
+        }
     }
 
     private func preference<Value>(_ keyPath: WritableKeyPath<Preferences, Value>) -> Binding<Value> {

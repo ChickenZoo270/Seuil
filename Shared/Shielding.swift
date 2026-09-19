@@ -33,10 +33,10 @@ enum Shielding {
         store.shield.applicationCategories = categories.isEmpty ? nil : .specific(categories, except: exceptions)
     }
 
-    /// Routine states from the clock; used when the app opens to repair missed callbacks.
-    static func reconcileRoutines(_ state: inout SharedState, now: Date = Date()) {
-        state.activeRoutineIDs = Set(state.routines.filter { $0.isEnabled && $0.window.isActive(at: now) }.map(\.id))
-        if let focus = state.focus, focus.endsAt <= now { state.focus = nil }
+    /// Routine states from the clock. Used when the app opens and on every routine
+    /// callback, so a late, early or missing boundary callback cannot leave a wrong state.
+    static func reconcileRoutines(_ state: inout SharedState, at date: Date = Date()) {
+        state.activeRoutineIDs = Set(state.routines.filter { $0.isEnabled && $0.window.isActive(at: date) }.map(\.id))
     }
 }
 
@@ -87,28 +87,39 @@ enum DailyMonitoring {
     }
 }
 
-/// Each routine is one repeating daily activity; the weekday is checked when it starts.
+/// Routines are registered as repeating daily activities that never cross midnight
+/// (DeviceActivity handles that boundary poorly). An overnight routine gets two parts.
+/// Parts shorter than Apple's 15-minute minimum are padded and signal their real
+/// boundary through the interval warning. Every callback re-evaluates routines from
+/// the clock, so the weekday and boundaries are always derived from `RoutineWindow`.
 enum RoutineMonitoring {
     private static let prefix = "routine."
 
-    static func activity(for routine: Routine) -> DeviceActivityName { .init(prefix + routine.id) }
-
-    static func routineID(from activity: DeviceActivityName) -> String? {
-        let raw = activity.rawValue
-        return raw.hasPrefix(prefix) ? String(raw.dropFirst(prefix.count)) : nil
-    }
+    static func isRoutineActivity(_ activity: DeviceActivityName) -> Bool { activity.rawValue.hasPrefix(prefix) }
 
     static func restart(for routines: [Routine], center: DeviceActivityCenter = DeviceActivityCenter()) throws {
-        let stale = center.activities.filter { $0.rawValue.hasPrefix(prefix) }
-        center.stopMonitoring(stale)
+        center.stopMonitoring(center.activities.filter(isRoutineActivity))
         for routine in routines where routine.isEnabled && routine.window.isValid && !routine.isEmpty {
-            let window = routine.window
-            let schedule = DeviceActivitySchedule(
-                intervalStart: DateComponents(hour: window.startMinute / 60, minute: window.startMinute % 60),
-                intervalEnd: DateComponents(hour: window.endMinute / 60, minute: window.endMinute % 60),
-                repeats: true)
-            try center.startMonitoring(activity(for: routine), during: schedule)
+            for part in routine.window.scheduleParts {
+                let schedule = DeviceActivitySchedule(
+                    intervalStart: components(part.startMinute, isEnd: false),
+                    intervalEnd: components(part.endMinute, isEnd: true),
+                    repeats: true,
+                    warningTime: part.warningMinutes > 0 ? DateComponents(minute: part.warningMinutes) : nil)
+                try center.startMonitoring(.init("\(prefix)\(routine.id).\(part.suffix)"), during: schedule)
+            }
         }
+    }
+
+    static func isRegistered(_ routines: [Routine], center: DeviceActivityCenter) -> Bool {
+        let expected = routines.contains { $0.isEnabled && $0.window.isValid && !$0.isEmpty }
+        return !expected || center.activities.contains(where: isRoutineActivity)
+    }
+
+    /// DeviceActivity cannot express 24:00: the end of the day is 23:59:59.
+    private static func components(_ minute: Int, isEnd: Bool) -> DateComponents {
+        if isEnd && minute >= RoutineWindow.dayMinutes { return DateComponents(hour: 23, minute: 59, second: 59) }
+        return DateComponents(hour: minute / 60, minute: minute % 60, second: 0)
     }
 }
 

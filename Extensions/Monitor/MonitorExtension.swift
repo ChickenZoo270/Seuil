@@ -10,18 +10,8 @@ final class MonitorExtension: DeviceActivityMonitor {
 
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        if activity == DailyMonitoring.activity {
-            // New day: every allowance and unlock quota is available again.
-            update("Daily reset") { state in
-                for index in state.rules.indices { state.rules[index].limitReachedAt = nil }
-            }
-        } else if let id = RoutineMonitoring.routineID(from: activity) {
-            update("Routine start") { state in
-                guard let routine = state.routines.first(where: { $0.id == id }), routine.isEnabled,
-                      routine.window.isActive(at: Date().addingTimeInterval(clockTolerance)) else { return }
-                state.activeRoutineIDs.insert(id)
-            }
-        }
+        // Daily allowances need no reset: a limit only counts on the day it was reached.
+        if RoutineMonitoring.isRoutineActivity(activity) { reconcileRoutines() }
     }
 
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
@@ -37,9 +27,15 @@ final class MonitorExtension: DeviceActivityMonitor {
             var message: (title: String, body: String)?
             update("Usage alert") { state in
                 let key = SharedState.alertKey(ruleID: ruleID, minutes: minutes, now: Date())
-                guard state.preferences.usageAlerts, !state.sentAlerts.contains(key),
-                      let rule = state.rules.first(where: { $0.id == ruleID }) else { return }
                 let today = String(key.split(separator: "|")[0])
+                // Past usage can fire several thresholds at once: only the highest one speaks.
+                let higherSent = state.sentAlerts.contains { sent in
+                    let parts = sent.split(separator: "|")
+                    return parts.count == 3 && parts[0] == Substring(today) && parts[1] == Substring(ruleID)
+                        && (Int(parts[2]) ?? 0) > minutes
+                }
+                guard state.preferences.usageAlerts, !state.sentAlerts.contains(key), !higherSent,
+                      let rule = state.rules.first(where: { $0.id == ruleID }) else { return }
                 state.sentAlerts = state.sentAlerts.filter { $0.hasPrefix(today + "|") } + [key]
                 message = UsageAlert.message(minutes: minutes, appName: rule.name)
             }
@@ -47,24 +43,28 @@ final class MonitorExtension: DeviceActivityMonitor {
         }
     }
 
-    // Sessions shorter than Apple's 15-minute minimum end at this warning.
+    // Sessions shorter than Apple's 15-minute minimum end at this warning;
+    // padded routine parts reach their real boundary here too.
     override func intervalWillEndWarning(for activity: DeviceActivityName) {
         super.intervalWillEndWarning(for: activity)
-        endTemporary(activity)
+        if RoutineMonitoring.isRoutineActivity(activity) { reconcileRoutines() } else { endTemporary(activity) }
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-        if let id = RoutineMonitoring.routineID(from: activity) {
-            update("Routine end") { state in state.activeRoutineIDs.remove(id) }
-        } else {
-            endTemporary(activity)
+        if RoutineMonitoring.isRoutineActivity(activity) { reconcileRoutines() } else { endTemporary(activity) }
+    }
+
+    /// Boundary callbacks can come slightly early or late: judge from just after now.
+    private func reconcileRoutines() {
+        update("Routine boundary") { state in
+            Shielding.reconcileRoutines(&state, at: Date().addingTimeInterval(clockTolerance))
         }
     }
 
     /// Ends an unlock session or a focus session registered under this activity.
     private func endTemporary(_ activity: DeviceActivityName) {
-        guard activity != DailyMonitoring.activity, RoutineMonitoring.routineID(from: activity) == nil else { return }
+        guard activity != DailyMonitoring.activity else { return }
         var matched = false
         update("Session end") { state in
             // Late callbacks from previous sessions must never close a new one.

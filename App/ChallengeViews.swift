@@ -1,6 +1,22 @@
 import SwiftUI
 import IntentionCore
 
+/// The challenge chosen in settings, used both to unlock and to try it out.
+struct ChallengeView: View {
+    let preferences: Preferences
+    let minutes: Int
+    let onPassed: () -> Void
+
+    var body: some View {
+        switch preferences.challenge {
+        case .math: MathChallengeView(difficulty: preferences.difficulty, onPassed: onPassed)
+        case .typing: TypingChallengeView(difficulty: preferences.difficulty, onPassed: onPassed)
+        case .pause: PauseChallengeView(difficulty: preferences.difficulty, onPassed: onPassed)
+        case .reason: ReasonChallengeView(minutes: minutes, onPassed: onPassed)
+        }
+    }
+}
+
 struct MathChallengeView: View {
     let difficulty: Difficulty
     let onPassed: () -> Void
@@ -14,6 +30,7 @@ struct MathChallengeView: View {
             ForEach(Array(problems.enumerated()), id: \.offset) { index, problem in
                 HStack {
                     Text("\(problem.text) =").font(.title3.monospacedDigit())
+                        .accessibilityIdentifier("math.problem.\(index)")
                     Spacer()
                     TextField("?", text: answerBinding(index))
                         .keyboardType(.numbersAndPunctuation)
@@ -21,10 +38,12 @@ struct MathChallengeView: View {
                         .multilineTextAlignment(.trailing)
                         .frame(width: 110)
                         .accessibilityLabel("Réponse à \(problem.text)")
+                        .accessibilityIdentifier("math.answer.\(index)")
                 }
             }
             if !feedback.isEmpty { Text(feedback).font(.footnote).foregroundStyle(.red) }
             Button("Valider", action: check)
+                .accessibilityIdentifier("challenge.validate")
                 .buttonStyle(.borderedProminent).foregroundStyle(SeuilTheme.onAccent)
                 .disabled(answers.contains { $0.trimmingCharacters(in: .whitespaces).isEmpty })
         }
@@ -66,11 +85,13 @@ struct TypingChallengeView: View {
                 .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
                 .textSelection(.disabled)
+                .accessibilityIdentifier("typing.phrase")
             TextField("Ta phrase", text: $input, axis: .vertical)
                 .lineLimit(2...5)
                 .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
+                .accessibilityIdentifier("typing.input")
             if !feedback.isEmpty { Text(feedback).font(.footnote).foregroundStyle(.red) }
             Button("Valider") {
                 if TypingChallenge.matches(input, phrase: phrase) { onPassed() } else { feedback = "Ce n’est pas exactement la phrase. Réessaie." }
