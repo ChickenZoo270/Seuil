@@ -22,6 +22,7 @@ final class MonitorExtension: DeviceActivityMonitor {
             update("Limit reached") { state in
                 guard let index = state.rules.firstIndex(where: { $0.id == ruleID }) else { return }
                 state.rules[index].limitReachedAt = Date()
+                state.markDirty(Date())
             }
         case .alert(let ruleID, let minutes):
             var message: (title: String, body: String)?

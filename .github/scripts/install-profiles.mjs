@@ -11,6 +11,7 @@ const TARGETS = {
   ShieldConfiguration: "com.chickenzoo.seuil.shieldconfiguration",
   ShieldAction: "com.chickenzoo.seuil.shieldaction",
   Monitor: "com.chickenzoo.seuil.monitor",
+  Report: "com.chickenzoo.seuil.report",
 };
 const REQUIRED_ENTITLEMENTS = [
   "com.apple.developer.family-controls",

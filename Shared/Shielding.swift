@@ -10,27 +10,26 @@ enum Shielding {
     /// allowance, active routines and focus, minus the one app unlocked by a session.
     static func apply(_ state: SharedState, now: Date = Date()) {
         var applications = Set(state.rules.filter { $0.isBlocked(now: now) }.map(\.token))
+        applications.formUnion(state.neverAllowed)
         var categories = Set<ActivityCategoryToken>()
         for routine in state.activeRoutines {
             applications.formUnion(routine.applications)
             categories.formUnion(routine.categories)
         }
-        if state.isFocusActive(now: now) {
-            applications.formUnion(state.applications)
-            for routine in state.routines where routine.isEnabled {
-                applications.formUnion(routine.applications)
-                categories.formUnion(routine.categories)
-            }
-        }
-        var exceptions = Set<ApplicationToken>()
+        var exceptions = state.allowedApplications.subtracting(state.neverAllowed)
         if let session = state.session, session.isArmed, session.expiresAt > now,
            !state.isStrictlyBlocked(session.application, now: now) {
             applications.remove(session.application)
             exceptions.insert(session.application)
         }
+        applications.subtract(exceptions)
         let store = AppConfiguration.store
         store.shield.applications = applications.isEmpty ? nil : applications
-        store.shield.applicationCategories = categories.isEmpty ? nil : .specific(categories, except: exceptions)
+        if state.blocksAll(now: now) {
+            store.shield.applicationCategories = .all(except: exceptions)
+        } else {
+            store.shield.applicationCategories = categories.isEmpty ? nil : .specific(categories, except: exceptions)
+        }
     }
 
     /// Routine states from the clock. Used when the app opens and on every routine

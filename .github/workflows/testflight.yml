@@ -60,6 +60,7 @@ jobs:
             SEUIL_PROFILE_ShieldConfiguration="$SEUIL_PROFILE_ShieldConfiguration" \
             SEUIL_PROFILE_ShieldAction="$SEUIL_PROFILE_ShieldAction" \
             SEUIL_PROFILE_Monitor="$SEUIL_PROFILE_Monitor" \
+            SEUIL_PROFILE_Report="$SEUIL_PROFILE_Report" \
             archive
       - name: Export and upload to TestFlight
         run: |

@@ -43,6 +43,8 @@ targets:
         embed: true
       - target: Monitor
         embed: true
+      - target: Report
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil
@@ -116,6 +118,27 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MonitorExtension
+  Report:
+    type: extensionkit-extension
+    platform: iOS
+    sources: [Extensions/Report, Shared]
+    dependencies:
+      - package: IntentionCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil.report
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: Configuration/Intention.entitlements
+    info:
+      path: Configuration/Report-Info.plist
+      properties:
+        CFBundleDisplayName: Seuil
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        IntentionAppGroup: $(INTENTION_APP_GROUP)
+        EXAppExtensionAttributes:
+          EXExtensionPointIdentifier: com.apple.deviceactivityui.report-extension
   SeuilUITests:
     type: bundle.ui-testing
     platform: iOS

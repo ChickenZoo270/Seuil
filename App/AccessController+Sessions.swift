@@ -32,6 +32,7 @@ extension AccessController {
                 guard current.rules[index].remainingUnlocks(now: now) != 0 else { throw AppError.quotaReached }
                 current.rules[index].unlocks = current.rules[index].unlocks.filter { $0 > now.addingTimeInterval(-2 * 86_400) } + [now]
             }
+            current.markDirty(now)
             let previous = current
             let start = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970))
             let id = "intention.\(UUID().uuidString)"
