@@ -5,3 +5,14 @@ DerivedData/
 Configuration/*-Info.plist
 xcuserdata/
 .DS_Store
+
+# Signing material - never commit
+.seuil-signing/
+*.p8
+*.p12
+*.p12.base64
+*.p12-password
+*.mobileprovision
+*.cer
+*.certSigningRequest
+*-key.pem

@@ -17,20 +17,59 @@ jobs:
         run: |
           XCODE_PATH=$(find /Applications -maxdepth 1 -name 'Xcode*.app' | sort -V | tail -1)
           sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          xcodebuild -version
           brew install xcodegen
           xcodegen generate
       - name: Authenticate to Apple services
         env:
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
         run: |
+          set -euo pipefail
           ASC_KEY_PATH="$RUNNER_TEMP/AuthKey_$ASC_KEY_ID.p8"
-          printf '%s' "$ASC_PRIVATE_KEY" > "$ASC_KEY_PATH"
-          mkdir -p "$HOME/.appstoreconnect/private_keys"
-          cp "$ASC_KEY_PATH" "$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s\n' "$ASC_PRIVATE_KEY" > "$ASC_KEY_PATH"
+          openssl pkey -in "$ASC_KEY_PATH" -check -noout
           echo "ASC_KEY_PATH=$ASC_KEY_PATH" >> "$GITHUB_ENV"
+      - name: Import distribution certificate
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/distribution.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          printf '%s' "$BUILD_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          rm -f "$CERT_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+      - name: Install App Store provisioning profiles
+        run: node .github/scripts/install-profiles.mjs
       - name: Archive Seuil
-        run: xcodebuild -project Intention.xcodeproj -scheme Intention -configuration Release -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Seuil.xcarchive" DEVELOPMENT_TEAM="$APPLE_TEAM_ID" -allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" archive
-      - name: Export IPA
-        run: xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Seuil.xcarchive" -exportOptionsPlist .github/ExportOptions-TestFlight.plist -exportPath "$RUNNER_TEMP/export" -allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
-      - name: Upload to TestFlight
-        run: xcrun altool --upload-app --type ios --file "$RUNNER_TEMP/export/Intention.ipa" --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+        run: |
+          set -euo pipefail
+          xcodebuild -project Intention.xcodeproj -scheme Intention -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Seuil.xcarchive" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Distribution" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            SEUIL_PROFILE_Intention="$SEUIL_PROFILE_Intention" \
+            SEUIL_PROFILE_ShieldConfiguration="$SEUIL_PROFILE_ShieldConfiguration" \
+            SEUIL_PROFILE_ShieldAction="$SEUIL_PROFILE_ShieldAction" \
+            SEUIL_PROFILE_Monitor="$SEUIL_PROFILE_Monitor" \
+            archive
+      - name: Export and upload to TestFlight
+        run: |
+          set -euo pipefail
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Seuil.xcarchive" \
+            -exportOptionsPlist "$EXPORT_OPTIONS_PATH" -exportPath "$RUNNER_TEMP/export" \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+      - name: Clean up signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP"/AuthKey_*.p8

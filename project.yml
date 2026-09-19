@@ -12,6 +12,8 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "26.0"
     TARGETED_DEVICE_FAMILY: "1"
     CODE_SIGN_STYLE: Automatic
+    # Empty unless the TestFlight workflow passes SEUIL_PROFILE_<Target> for manual signing.
+    PROVISIONING_PROFILE_SPECIFIER: $(SEUIL_PROFILE_$(TARGET_NAME))
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
     INTENTION_APP_GROUP: group.com.chickenzoo.seuil
@@ -49,6 +51,7 @@ targets:
       path: Configuration/App-Info.plist
       properties:
         CFBundleDisplayName: Seuil
+        ITSAppUsesNonExemptEncryption: false
         IntentionAppGroup: $(INTENTION_APP_GROUP)
         UILaunchScreen: {}
         UIApplicationSceneManifest:
