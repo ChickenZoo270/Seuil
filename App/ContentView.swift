@@ -1,5 +1,6 @@
 import SwiftUI
 import ManagedSettings
+import IntentionCore
 
 struct ContentView: View {
     @StateObject private var access = AccessController()
