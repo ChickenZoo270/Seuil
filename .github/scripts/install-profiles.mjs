@@ -39,17 +39,50 @@ function createToken() {
   return `${header}.${payload}.${base64url(signature)}`;
 }
 
-async function fetchProfiles(token) {
-  const url = new URL("https://api.appstoreconnect.apple.com/v1/profiles");
-  url.searchParams.set("filter[profileType]", "IOS_APP_STORE");
-  url.searchParams.set("filter[profileState]", "ACTIVE");
-  url.searchParams.set("include", "bundleId");
-  url.searchParams.set("limit", "200");
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+const API_ROOT = "https://api.appstoreconnect.apple.com/v1";
+const token = createToken();
+
+async function api(path, options = {}) {
+  const response = await fetch(`${API_ROOT}${path}`, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+  });
   if (!response.ok) {
-    throw new Error(`App Store Connect API ${response.status}: ${await response.text()}`);
+    throw new Error(`App Store Connect API ${options.method ?? "GET"} ${path} → ${response.status}: ${await response.text()}`);
   }
   return response.json();
+}
+
+const fetchProfiles = () =>
+  api("/profiles?filter[profileType]=IOS_APP_STORE&filter[profileState]=ACTIVE&include=bundleId&limit=200");
+
+// A profile snapshots the App ID capabilities at creation time, so a profile
+// made before Family Controls (Distribution) was enabled never gains it.
+// Create a fresh one with the same bundle ID and certificates; old ones stay.
+async function regenerate(profile) {
+  const certificates = await api(`/profiles/${profile.id}/certificates`);
+  const created = await api("/profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      data: {
+        type: "profiles",
+        attributes: {
+          name: `${profile.attributes.name.replace(/ \(CI \d+\)$/, "")} (CI ${process.env.GITHUB_RUN_NUMBER ?? Date.now()})`,
+          profileType: "IOS_APP_STORE",
+        },
+        relationships: {
+          bundleId: { data: { type: "bundleIds", id: profile.relationships.bundleId.data.id } },
+          certificates: { data: certificates.data.map(({ id }) => ({ type: "certificates", id })) },
+        },
+      },
+    }),
+  });
+  return created.data;
+}
+
+async function bundleCapabilities(profile) {
+  const capabilities = await api(`/bundleIds/${profile.relationships.bundleId.data.id}/bundleIdCapabilities`);
+  return capabilities.data.map((item) => item.attributes.capabilityType).join(", ");
 }
 
 // Profiles are CMS-signed plists; the embedded XML is readable as plain text.
@@ -75,24 +108,40 @@ function pickProfile(body, bundleIdentifier) {
   return matches[0];
 }
 
-const body = await fetchProfiles(createToken());
+const missingEntitlements = (profile) => {
+  const entitlements = entitlementsOf(Buffer.from(profile.attributes.profileContent, "base64"));
+  return REQUIRED_ENTITLEMENTS.filter((key) => !entitlements.includes(key));
+};
+
+const body = await fetchProfiles();
 const profileDir = join(homedir(), "Library", "MobileDevice", "Provisioning Profiles");
 mkdirSync(profileDir, { recursive: true });
 
 const exportProfiles = [];
+const problems = [];
 for (const [target, bundleIdentifier] of Object.entries(TARGETS)) {
-  const profile = pickProfile(body, bundleIdentifier);
+  let profile = pickProfile(body, bundleIdentifier);
+  const isCiProfile = / \(CI \d+\)$/.test(profile.attributes.name);
+  if (missingEntitlements(profile).length > 0 && !isCiProfile) {
+    console.log(`${target}: "${profile.attributes.name}" lacks ${missingEntitlements(profile).join(", ")}; regenerating.`);
+    const fresh = await regenerate(profile);
+    fresh.relationships = profile.relationships;
+    profile = fresh;
+  }
+  const missing = missingEntitlements(profile);
+  if (missing.length > 0) {
+    problems.push(`${bundleIdentifier}: fresh profile still lacks ${missing.join(", ")} (App ID capabilities: ${await bundleCapabilities(profile)})`);
+    continue;
+  }
   const { name, uuid, profileContent, expirationDate } = profile.attributes;
   const bytes = Buffer.from(profileContent, "base64");
-  const entitlements = entitlementsOf(bytes);
-  const missing = REQUIRED_ENTITLEMENTS.filter((key) => !entitlements.includes(key));
-  if (missing.length > 0) {
-    throw new Error(`Profile "${name}" (${bundleIdentifier}) lacks ${missing.join(", ")}. Regenerate it after enabling the capability on the App ID.`);
-  }
   writeFileSync(join(profileDir, `${uuid}.mobileprovision`), bytes);
   appendFileSync(GITHUB_ENV, `SEUIL_PROFILE_${target}=${name}\n`);
   exportProfiles.push(`    <key>${bundleIdentifier}</key>\n    <string>${uuid}</string>`);
   console.log(`${target}: "${name}" (${uuid}), expires ${expirationDate}`);
+}
+if (problems.length > 0) {
+  throw new Error(`Enable "Family Controls (Distribution)" and App Groups on these App IDs, then rerun:\n${problems.join("\n")}`);
 }
 
 const exportOptions = `<?xml version="1.0" encoding="UTF-8"?>
