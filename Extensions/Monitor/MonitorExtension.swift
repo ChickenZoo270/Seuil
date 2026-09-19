@@ -1,61 +1,85 @@
 import DeviceActivity
 import Foundation
 import os
+import IntentionCore
 
 final class MonitorExtension: DeviceActivityMonitor {
     private let logger = Logger(subsystem: "Intention", category: "Monitor")
+    /// Callbacks can arrive slightly before the scheduled minute.
+    private let clockTolerance: TimeInterval = 120
 
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
-        guard activity == DailyMonitoring.activity else { return }
-        // New day: every allowance is available again.
-        update("Daily reset") { state in
-            for index in state.rules.indices { state.rules[index].limitReachedAt = nil }
+        if activity == DailyMonitoring.activity {
+            // New day: every allowance and unlock quota is available again.
+            update("Daily reset") { state in
+                for index in state.rules.indices { state.rules[index].limitReachedAt = nil }
+            }
+        } else if let id = RoutineMonitoring.routineID(from: activity) {
+            update("Routine start") { state in
+                guard let routine = state.routines.first(where: { $0.id == id }), routine.isEnabled,
+                      routine.window.isActive(at: Date().addingTimeInterval(clockTolerance)) else { return }
+                state.activeRoutineIDs.insert(id)
+            }
         }
     }
 
     override func eventDidReachThreshold(_ event: DeviceActivityEvent.Name, activity: DeviceActivityName) {
         super.eventDidReachThreshold(event, activity: activity)
-        guard activity == DailyMonitoring.activity, let id = DailyMonitoring.ruleID(from: event) else { return }
-        update("Limit reached") { state in
-            guard let index = state.rules.firstIndex(where: { $0.id == id }) else { return }
-            state.rules[index].limitReachedAt = Date()
+        guard activity == DailyMonitoring.activity, let parsed = DailyMonitoring.parse(event) else { return }
+        switch parsed {
+        case .limit(let ruleID):
+            update("Limit reached") { state in
+                guard let index = state.rules.firstIndex(where: { $0.id == ruleID }) else { return }
+                state.rules[index].limitReachedAt = Date()
+            }
+        case .alert(let ruleID, let minutes):
+            var message: (title: String, body: String)?
+            update("Usage alert") { state in
+                let key = SharedState.alertKey(ruleID: ruleID, minutes: minutes, now: Date())
+                guard state.preferences.usageAlerts, !state.sentAlerts.contains(key),
+                      let rule = state.rules.first(where: { $0.id == ruleID }) else { return }
+                let today = String(key.split(separator: "|")[0])
+                state.sentAlerts = state.sentAlerts.filter { $0.hasPrefix(today + "|") } + [key]
+                message = UsageAlert.message(minutes: minutes, appName: rule.name)
+            }
+            if let message { Notifier.post(title: message.title, body: message.body, id: "alert.\(ruleID).\(minutes)") }
         }
     }
 
     // Sessions shorter than Apple's 15-minute minimum end at this warning.
     override func intervalWillEndWarning(for activity: DeviceActivityName) {
         super.intervalWillEndWarning(for: activity)
-        endSession(activity)
+        endTemporary(activity)
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-        endSession(activity)
+        if let id = RoutineMonitoring.routineID(from: activity) {
+            update("Routine end") { state in state.activeRoutineIDs.remove(id) }
+        } else {
+            endTemporary(activity)
+        }
     }
 
-    private func endSession(_ activity: DeviceActivityName) {
-        guard activity != DailyMonitoring.activity else { return }
-        do {
-            try SharedStorage.locked { state, save in
-                // Late callbacks from previous sessions must never close a new session.
-                guard state.session?.id == activity.rawValue else { return }
-                state.session = nil
-                SharedStorage.applyShield(state)
-                try save(state)
-            }
-            DeviceActivityCenter().stopMonitoring([activity])
-        } catch {
-            logger.error("Reblocking failed: \(error.localizedDescription, privacy: .public)")
+    /// Ends an unlock session or a focus session registered under this activity.
+    private func endTemporary(_ activity: DeviceActivityName) {
+        guard activity != DailyMonitoring.activity, RoutineMonitoring.routineID(from: activity) == nil else { return }
+        var matched = false
+        update("Session end") { state in
+            // Late callbacks from previous sessions must never close a new one.
+            if state.session?.id == activity.rawValue { state.session = nil; matched = true }
+            if state.focus?.id == activity.rawValue { state.focus = nil; matched = true }
         }
+        if matched { DeviceActivityCenter().stopMonitoring([activity]) }
     }
 
     private func update(_ label: String, _ change: (inout SharedState) -> Void) {
         do {
             try SharedStorage.locked { state, save in
                 change(&state)
-                // Shield first so a failed write cannot leave a used-up app open.
-                SharedStorage.applyShield(state)
+                // Shield first so a failed write cannot leave a blocked app open.
+                Shielding.apply(state)
                 try save(state)
             }
         } catch {

@@ -1,0 +1,128 @@
+import Foundation
+import FamilyControls
+import ManagedSettings
+import DeviceActivity
+import UserNotifications
+import IntentionCore
+
+enum Shielding {
+    /// Single source of truth for what is blocked right now: apps past their daily
+    /// allowance, active routines and focus, minus the one app unlocked by a session.
+    static func apply(_ state: SharedState, now: Date = Date()) {
+        var applications = Set(state.rules.filter { $0.isBlocked(now: now) }.map(\.token))
+        var categories = Set<ActivityCategoryToken>()
+        for routine in state.activeRoutines {
+            applications.formUnion(routine.applications)
+            categories.formUnion(routine.categories)
+        }
+        if state.isFocusActive(now: now) {
+            applications.formUnion(state.applications)
+            for routine in state.routines where routine.isEnabled {
+                applications.formUnion(routine.applications)
+                categories.formUnion(routine.categories)
+            }
+        }
+        var exceptions = Set<ApplicationToken>()
+        if let session = state.session, session.isArmed, session.expiresAt > now,
+           !state.isStrictlyBlocked(session.application, now: now) {
+            applications.remove(session.application)
+            exceptions.insert(session.application)
+        }
+        let store = AppConfiguration.store
+        store.shield.applications = applications.isEmpty ? nil : applications
+        store.shield.applicationCategories = categories.isEmpty ? nil : .specific(categories, except: exceptions)
+    }
+
+    /// Routine states from the clock; used when the app opens to repair missed callbacks.
+    static func reconcileRoutines(_ state: inout SharedState, now: Date = Date()) {
+        state.activeRoutineIDs = Set(state.routines.filter { $0.isEnabled && $0.window.isActive(at: now) }.map(\.id))
+        if let focus = state.focus, focus.endsAt <= now { state.focus = nil }
+    }
+}
+
+/// Daily allowances and usage reminders use the same mechanism as Screen Time limits:
+/// one repeating day-long activity with usage threshold events per app.
+enum DailyMonitoring {
+    static let activity = DeviceActivityName("seuil.daily")
+    private static let limitPrefix = "limit."
+    private static let alertPrefix = "alert."
+
+    enum Event {
+        case limit(ruleID: String)
+        case alert(ruleID: String, minutes: Int)
+    }
+
+    static func parse(_ event: DeviceActivityEvent.Name) -> Event? {
+        let raw = event.rawValue
+        if raw.hasPrefix(limitPrefix) { return .limit(ruleID: String(raw.dropFirst(limitPrefix.count))) }
+        guard raw.hasPrefix(alertPrefix) else { return nil }
+        let parts = raw.dropFirst(alertPrefix.count).split(separator: "|")
+        guard parts.count == 2, let minutes = Int(parts[1]) else { return nil }
+        return .alert(ruleID: String(parts[0]), minutes: minutes)
+    }
+
+    static func restart(for state: SharedState, center: DeviceActivityCenter = DeviceActivityCenter()) throws {
+        center.stopMonitoring([activity])
+        var events: [DeviceActivityEvent.Name: DeviceActivityEvent] = [:]
+        for rule in state.rules {
+            if rule.dailyMinutes > 0 {
+                events[.init(limitPrefix + rule.id)] = event(for: rule.token, minutes: rule.dailyMinutes)
+            }
+            guard state.preferences.usageAlerts else { continue }
+            for minutes in UsageAlert.thresholds where rule.dailyMinutes == 0 || minutes < rule.dailyMinutes {
+                events[.init("\(alertPrefix)\(rule.id)|\(minutes)")] = event(for: rule.token, minutes: minutes)
+            }
+        }
+        guard !events.isEmpty else { return }
+        let schedule = DeviceActivitySchedule(
+            intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
+            intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
+            repeats: true)
+        try center.startMonitoring(activity, during: schedule, events: events)
+    }
+
+    // Past activity counts so that changing a limit mid-day keeps today's usage.
+    private static func event(for token: ApplicationToken, minutes: Int) -> DeviceActivityEvent {
+        DeviceActivityEvent(applications: [token], threshold: DateComponents(minute: minutes), includesPastActivity: true)
+    }
+}
+
+/// Each routine is one repeating daily activity; the weekday is checked when it starts.
+enum RoutineMonitoring {
+    private static let prefix = "routine."
+
+    static func activity(for routine: Routine) -> DeviceActivityName { .init(prefix + routine.id) }
+
+    static func routineID(from activity: DeviceActivityName) -> String? {
+        let raw = activity.rawValue
+        return raw.hasPrefix(prefix) ? String(raw.dropFirst(prefix.count)) : nil
+    }
+
+    static func restart(for routines: [Routine], center: DeviceActivityCenter = DeviceActivityCenter()) throws {
+        let stale = center.activities.filter { $0.rawValue.hasPrefix(prefix) }
+        center.stopMonitoring(stale)
+        for routine in routines where routine.isEnabled && routine.window.isValid && !routine.isEmpty {
+            let window = routine.window
+            let schedule = DeviceActivitySchedule(
+                intervalStart: DateComponents(hour: window.startMinute / 60, minute: window.startMinute % 60),
+                intervalEnd: DateComponents(hour: window.endMinute / 60, minute: window.endMinute % 60),
+                repeats: true)
+            try center.startMonitoring(activity(for: routine), during: schedule)
+        }
+    }
+}
+
+enum FocusMonitoring {
+    static let prefix = "focus."
+    static let options = [25, 50, 90]
+}
+
+enum Notifier {
+    static func post(title: String, body: String, id: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
+    }
+}
