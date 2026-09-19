@@ -18,7 +18,7 @@ extension AccessController {
     }
 
     /// Opens one app for `requested` minutes once its challenge has been passed.
-    func grant(application: ApplicationToken, minutes requested: Int) throws {
+    func grant(application: ApplicationToken, minutes requested: Int, emergency: Bool = false) throws {
         guard AuthorizationCenter.shared.authorizationStatus == .approved else { throw AppError.unauthorized }
         guard Policy.unlockOptions.contains(requested) else { throw AppError.invalidDecision }
         try Task.checkCancellation()
@@ -27,8 +27,13 @@ extension AccessController {
         defer { if let monitorToCancel { center.stopMonitoring([.init(monitorToCancel)]) } }
         try SharedStorage.locked { current, save in
             guard current.session == nil else { throw AppError.activeSession }
-            guard !current.isStrictlyBlocked(application, now: now) else { throw AppError.strict }
-            if let index = current.rules.firstIndex(where: { $0.token == application }) {
+            if emergency {
+                guard EmergencyPass.isAvailable(lastUsed: current.preferences.emergencyPassUsedAt, now: now) else { throw AppError.emergencyUsed }
+                current.preferences.emergencyPassUsedAt = now
+            } else {
+                guard !current.isStrictlyBlocked(application, now: now) else { throw AppError.strict }
+            }
+            if !emergency, let index = current.rules.firstIndex(where: { $0.token == application }) {
                 guard current.rules[index].remainingUnlocks(now: now) != 0 else { throw AppError.quotaReached }
                 current.rules[index].unlocks = current.rules[index].unlocks.filter { $0 > now.addingTimeInterval(-2 * 86_400) } + [now]
             }
@@ -37,7 +42,8 @@ extension AccessController {
             let start = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970))
             let id = "intention.\(UUID().uuidString)"
             current.session = AccessSession(id: id, application: application, startedAt: now,
-                                            expiresAt: start.addingTimeInterval(TimeInterval(requested * 60)), isArmed: false)
+                                            expiresAt: start.addingTimeInterval(TimeInterval(requested * 60)), isArmed: false,
+                                            isEmergency: emergency)
             current.pendingApplication = nil
             // Persist -> register reblocking -> unlock. Never unlock on registration failure.
             try save(current)
@@ -56,6 +62,10 @@ extension AccessController {
             monitorToCancel = nil
         }
         message = "\(requested) minutes débloquées. Retourne dans l’app."
+        if state.preferences.unlockReminders {
+            NotificationScheduler.once(id: "unlock.end", after: TimeInterval(requested * 60),
+                                       title: "Déblocage terminé", body: "L’app est de nouveau verrouillée. Bien joué de t’être fixé une limite.")
+        }
         refresh()
     }
 
@@ -91,5 +101,9 @@ extension AccessController {
         }
         if let sessionID { center.stopMonitoring([.init(sessionID)]) }
         message = "\(name) lancé : tout est bloqué pendant \(Scoring.duration(Double(minutes)))."
+        if state.preferences.serviceNotifications {
+            NotificationScheduler.once(id: "focus.end", after: TimeInterval(minutes * 60),
+                                       title: "\(name) terminé", body: "Tes apps sont de nouveau disponibles. Beau travail.")
+        }
     }
 }

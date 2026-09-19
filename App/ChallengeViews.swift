@@ -1,19 +1,81 @@
 import SwiftUI
 import IntentionCore
 
-/// The challenge chosen in settings, used both to unlock and to try it out.
+/// The waiting room: one of the enabled challenges, drawn at random, at a difficulty
+/// that follows the resistance setting. Used to unlock and to try it out.
 struct ChallengeView: View {
     let preferences: Preferences
     let minutes: Int
+    var unlocksToday = 0
     let onPassed: () -> Void
+    @State private var kind: ChallengeKind?
 
     var body: some View {
-        switch preferences.challenge {
-        case .math: MathChallengeView(difficulty: preferences.difficulty, onPassed: onPassed)
-        case .typing: TypingChallengeView(difficulty: preferences.difficulty, onPassed: onPassed)
-        case .pause: PauseChallengeView(difficulty: preferences.difficulty, onPassed: onPassed)
-        case .reason: ReasonChallengeView(minutes: minutes, onPassed: onPassed)
+        let difficulty = preferences.resistance.difficulty(base: preferences.difficulty, unlocksToday: unlocksToday)
+        Group {
+            switch kind ?? preferences.challenge {
+            case .math: MathChallengeView(difficulty: difficulty, onPassed: onPassed)
+            case .typing: TypingChallengeView(difficulty: difficulty, onPassed: onPassed)
+            case .pause: PauseChallengeView(difficulty: difficulty, onPassed: onPassed)
+            case .puzzle: PuzzleChallengeView(difficulty: difficulty, onPassed: onPassed)
+            case .reason: ReasonChallengeView(minutes: minutes, onPassed: onPassed)
+            }
         }
+        .onAppear {
+            guard kind == nil else { return }
+            kind = preferences.enabledChallenges.randomElement() ?? .pause
+        }
+    }
+}
+
+/// Tap the numbers in order; a wrong tap reshuffles the grid.
+struct PuzzleChallengeView: View {
+    let difficulty: Difficulty
+    let onPassed: () -> Void
+    @State private var grid: [Int] = []
+    @State private var found = 0
+    @State private var shake = false
+
+    var body: some View {
+        let columns = Int(Double(NumberPuzzle.size(for: difficulty)).squareRoot())
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Touche les nombres de 1 à \(grid.count) dans l’ordre").font(.headline)
+            Text("Prochain : \(found + 1)").font(.subheadline).foregroundStyle(SeuilTheme.accent)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: max(columns, 1)), spacing: 8) {
+                ForEach(grid, id: \.self) { value in
+                    Button { tap(value) } label: {
+                        Text("\(value)")
+                            .font(.title3.weight(.semibold).monospacedDigit())
+                            .frame(maxWidth: .infinity, minHeight: 52)
+                            .background(value <= found ? SeuilTheme.accent.opacity(0.25) : Color.white.opacity(0.08),
+                                        in: RoundedRectangle(cornerRadius: 12))
+                            .foregroundStyle(value <= found ? SeuilTheme.accent : .white)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(value <= found)
+                    .accessibilityIdentifier("puzzle.\(value)")
+                }
+            }
+            .offset(x: shake ? 8 : 0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.2), value: shake)
+        }
+        .onAppear { if grid.isEmpty { reshuffle() } }
+    }
+
+    private func tap(_ value: Int) {
+        guard NumberPuzzle.isNext(value, found: found) else {
+            shake.toggle()
+            found = 0
+            reshuffle()
+            return
+        }
+        found = value
+        if found == grid.count { onPassed() }
+    }
+
+    private func reshuffle() {
+        var rng = SystemRandomNumberGenerator()
+        grid = NumberPuzzle.grid(difficulty: difficulty, using: &rng)
     }
 }
 

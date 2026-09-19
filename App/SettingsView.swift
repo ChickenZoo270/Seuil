@@ -2,91 +2,152 @@ import SwiftUI
 import UIKit
 import IntentionCore
 
+extension AccessController {
+    /// Two-way binding to one preference, saved on every change.
+    func preference<Value>(_ keyPath: WritableKeyPath<Preferences, Value>) -> Binding<Value> {
+        Binding(get: { self.state.preferences[keyPath: keyPath] },
+                set: { value in self.updatePreferences { $0[keyPath: keyPath] = value } })
+    }
+}
+
 struct SettingsView: View {
     @ObservedObject var access: AccessController
-    @State private var tryingChallenge = false
-    @State private var challengeResult = ""
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage("profile.name") private var name = ""
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Défi", selection: preference(\.challenge)) {
-                    ForEach(ChallengeKind.allCases, id: \.self) { kind in
-                        VStack(alignment: .leading) {
-                            Text(kind.title)
-                            Text(kind.summary).font(.caption).foregroundStyle(SeuilTheme.secondaryInk)
-                        }.tag(kind)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                hardModeCard
+                SettingsCard(title: "Compte") {
+                    NavigationLink { AccountView() } label: {
+                        SettingsRowLabel(icon: "person.fill", title: "Mon compte", subtitle: name.isEmpty ? nil : name)
                     }
                 }
-                .pickerStyle(.inline)
-                .labelsHidden()
-                Picker("Difficulté", selection: preference(\.difficulty)) {
-                    ForEach(Difficulty.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Button("Essayer le défi") { challengeResult = ""; tryingChallenge = true }
-                    .accessibilityIdentifier("settings.tryChallenge")
-                if !challengeResult.isEmpty { Text(challengeResult).font(.footnote).accessibilityIdentifier("settings.challengeResult") }
-            } header: {
-                Text("Mériter un déblocage")
-            } footer: {
-                Text("Demandé à chaque déblocage d’une app verrouillée. Plus c’est difficile, plus tu as le temps de changer d’avis.")
-            }
-            Section {
-                Toggle("Rappels de temps passé", isOn: preference(\.usageAlerts))
-                if access.state.preferences.usageAlerts && !access.notificationsAllowed {
-                    Button("Autoriser les notifications") { openSystemSettings() }
-                }
-            } header: {
-                Text("Notifications")
-            } footer: {
-                Text("Une notification à \(UsageAlert.thresholds.map { "\($0) min" }.joined(separator: ", ")) d’utilisation par jour de chaque app verrouillée.")
-            }
-            Section {
-                Toggle("Hard Mode", isOn: Binding(get: { access.isHardModeActive },
-                                                  set: { access.setHardMode($0) }))
-                    .accessibilityIdentifier("settings.hardMode")
-                if let offAt = access.state.preferences.hardModeOffAt, access.isHardModeActive {
-                    Text("Désactivation le \(offAt.formatted(date: .abbreviated, time: .shortened)).")
-                        .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
-                }
-            } header: {
-                Text("Engagement")
-            } footer: {
-                Text("En Hard Mode, aucun déblocage temporaire, aucune annulation et aucun contournement : tu ne peux que durcir tes règles. Le désactiver prend 24 heures.")
-            }
-            Section("Confidentialité") {
-                Text("Seuil ne voit jamais le nom ni le contenu de tes apps : iOS ne lui donne que des jetons anonymes. Tout reste sur ton iPhone.")
-                    .font(.footnote)
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(GlowBackground())
-        .navigationTitle("Réglages")
-        .sheet(isPresented: $tryingChallenge) {
-            NavigationStack {
-                ScrollView {
-                    ChallengeView(preferences: access.state.preferences, minutes: Policy.defaultUnlockMinutes) {
-                        tryingChallenge = false
-                        challengeResult = "Défi réussi. C’est ce qui t’attendra avant chaque déblocage."
+                SettingsCard(title: "Personnaliser") {
+                    NavigationLink { NotificationSettingsView(access: access) } label: {
+                        SettingsRowLabel(icon: "bell.fill", title: "Notifications", value: access.notificationsAllowed ? "Activé" : "Désactivé")
                     }
-                    .padding(24)
+                    RowDivider()
+                    NavigationLink { ShieldDesignView(access: access) } label: {
+                        SettingsRowLabel(icon: "bolt.shield.fill", title: "Écrans de blocage",
+                                         subtitle: "Personnalise ce qui s’affiche quand une app est bloquée")
+                    }
+                    RowDivider()
+                    NavigationLink { WaitingRoomView(access: access) } label: {
+                        SettingsRowLabel(icon: "hourglass", title: "Salle d’attente", subtitle: "Ce qu’il faut faire pour débloquer")
+                    }
+                    .accessibilityIdentifier("settings.waitingRoom")
+                    RowDivider()
+                    NavigationLink { AutofocusView(access: access) } label: {
+                        SettingsRowLabel(icon: "sparkles", title: "Autofocus", subtitle: "Des rappels quand tu scrolles trop")
+                    }
                 }
-                .navigationTitle(access.state.preferences.challenge.title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fermer") { tryingChallenge = false } } }
+                SettingsCard(title: "Apps") {
+                    ForEach(AppListKind.allCases, id: \.self) { kind in
+                        NavigationLink { AppListView(access: access, kind: kind) } label: {
+                            SettingsRowLabel(icon: kind.symbol, title: kind.title, value: "\(kind.tokens(in: access.state).count)")
+                        }
+                        if kind != AppListKind.allCases.last { RowDivider() }
+                    }
+                }
+                SettingsCard(title: "Assistance") {
+                    Link(destination: URL(string: "mailto:adri1.pouch@gmail.com?subject=Seuil")!) {
+                        SettingsRowLabel(icon: "bubble.left.and.bubble.right.fill", title: "Contacter l’assistance", trailing: "arrow.up.right")
+                    }
+                    RowDivider()
+                    NavigationLink { HelpView() } label: { SettingsRowLabel(icon: "book.fill", title: "Centre d’aide") }
+                    RowDivider()
+                    NavigationLink { EmergencyPassView(access: access) } label: {
+                        SettingsRowLabel(icon: "ticket.fill", title: "Pass d’urgence",
+                                         value: access.isEmergencyPassAvailable ? "Disponible" : "Utilisé")
+                    }
+                    RowDivider()
+                    Button { access.reload() } label: {
+                        SettingsRowLabel(icon: "arrow.clockwise", title: "Recharger Seuil",
+                                         subtitle: "Réapplique tes règles et blocages si quelque chose ne fonctionne pas.", trailing: nil)
+                    }
+                }
+                SettingsCard(title: "Autorisations") {
+                    Button { if !access.authorized { Task { await access.authorize() } } } label: {
+                        SettingsRowLabel(icon: "hourglass.circle.fill", title: "Temps d’écran",
+                                         subtitle: "Pour bloquer tes apps et calculer ton score",
+                                         value: access.authorized ? "Autorisé" : "Autoriser", trailing: nil)
+                    }
+                    RowDivider()
+                    Button { openSystemSettings() } label: {
+                        SettingsRowLabel(icon: "bell.badge.fill", title: "Notifications",
+                                         value: access.notificationsAllowed ? "Autorisées" : "Ouvrir", trailing: "arrow.up.right")
+                    }
+                }
+                SettingsCard(title: "Partager") {
+                    ShareLink(item: "Je reprends la main sur mon téléphone avec Seuil. Chaque app se mérite 🔥") {
+                        SettingsRowLabel(icon: "square.and.arrow.up", title: "Partager Seuil")
+                    }
+                    RowDivider()
+                    NavigationLink { RewardsView(access: access) } label: {
+                        SettingsRowLabel(icon: "gift.fill", title: "Récompenses", subtitle: "Des gemmes à débloquer avec ta série")
+                    }
+                }
+                if !access.message.isEmpty {
+                    Text(access.message).font(.footnote).foregroundStyle(SeuilTheme.secondaryInk).padding(.horizontal, 8)
+                }
+                Text("Seuil v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
+                    .font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 40)
+        }
+        .scrollIndicators(.hidden)
+        .background(Color.black.ignoresSafeArea())
+        .navigationTitle("Paramètres")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                CircleIconButton(symbol: "checkmark", size: 44, prominent: true) { dismiss() }
+                    .accessibilityLabel("Terminé")
             }
         }
+        .foregroundStyle(.white)
+        .buttonStyle(.plain)
     }
 
-    private func preference<Value>(_ keyPath: WritableKeyPath<Preferences, Value>) -> Binding<Value> {
-        Binding(
-            get: { access.state.preferences[keyPath: keyPath] },
-            set: { value in
-                var preferences = access.state.preferences
-                preferences[keyPath: keyPath] = value
-                access.setPreferences(preferences)
-            })
+    private var hardModeCard: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(access.isHardModeActive ? "Hard Mode activé" : "Passe au niveau supérieur").font(.title2.weight(.semibold))
+                Text("Pour les jours où la volonté ne suffit pas.").foregroundStyle(SeuilTheme.secondaryInk)
+            }
+            ForEach([("lock.shield.fill", "Mode strict", "Sans issue. Aucun déblocage, ni annulation, ni contournement."),
+                     ("arrow.triangle.branch", "Règles illimitées", "Autant de routines et de limites que tu veux."),
+                     ("checkmark.seal.fill", "Toujours autorisées", "Tes essentiels restent accessibles.")], id: \.1) { item in
+                HStack(alignment: .top, spacing: 14) {
+                    Image(systemName: item.0).font(.title2).foregroundStyle(SeuilTheme.accentGradient).frame(width: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.1).font(.title3)
+                        Text(item.2).foregroundStyle(SeuilTheme.secondaryInk)
+                    }
+                }
+            }
+            Toggle(isOn: Binding(get: { access.isHardModeActive }, set: { access.setHardMode($0) })) {
+                Text("Hard Mode").font(.title3.weight(.semibold))
+            }
+            .tint(Color(red: 0.86, green: 0.96, blue: 0.62))
+            .padding(.horizontal, 22).padding(.vertical, 14)
+            .background(Color.white.opacity(0.08), in: Capsule())
+            .accessibilityIdentifier("settings.hardMode")
+            if let offAt = access.state.preferences.hardModeOffAt, access.isHardModeActive {
+                Text("Désactivation le \(offAt.formatted(date: .abbreviated, time: .shortened)).")
+                    .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+            }
+        }
+        .padding(22)
+        .background(
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(LinearGradient(colors: [SeuilTheme.glow.opacity(0.45), Color.white.opacity(0.04)], startPoint: .topTrailing, endPoint: .bottomLeading))
+        )
+        .overlay(RoundedRectangle(cornerRadius: 34, style: .continuous).strokeBorder(Color.white.opacity(0.1)))
     }
 
     private func openSystemSettings() {

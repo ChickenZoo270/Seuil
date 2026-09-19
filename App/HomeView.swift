@@ -22,8 +22,11 @@ struct HomeView: View {
     @ObservedObject var access: AccessController
     let onUnlock: (ApplicationToken) -> Void
     let onShowApps: () -> Void
-    let onSettings: () -> Void
+    let onFocus: () -> Void
+    let onRoute: (SettingsRoute) -> Void
     @State private var showDetail = false
+    @State private var showMenu = false
+    @AppStorage("profile.name") private var name = ""
     @State private var filter = todayFilter()
 
     var body: some View {
@@ -52,6 +55,15 @@ struct HomeView: View {
         }
         .scrollIndicators(.hidden)
         .overlay(alignment: .bottom) { unlockPill.padding(.bottom, 92) }
+        .overlay(alignment: .topTrailing) {
+            if showMenu {
+                ZStack(alignment: .topTrailing) {
+                    Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { withAnimation { showMenu = false } }
+                    profileMenu.padding(.top, 64).padding(.trailing, 20)
+                        .transition(.scale(scale: 0.85, anchor: .topTrailing).combined(with: .opacity))
+                }
+            }
+        }
         .onAppear { filter = todayFilter() }
         .sheet(isPresented: $showDetail) { ScoreDetailSheet(filter: filter) }
     }
@@ -70,9 +82,9 @@ struct HomeView: View {
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Color.white.opacity(0.08), in: Capsule())
             .accessibilityLabel("Série de \(access.state.streak(now: Date())) jours")
-            CircleIconButton(symbol: "person.fill", size: 46, action: onSettings)
+            CircleIconButton(symbol: "person.fill", size: 46) { withAnimation(.spring(response: 0.3)) { showMenu.toggle() } }
                 .accessibilityIdentifier("home.settings")
-                .accessibilityLabel("Réglages")
+                .accessibilityLabel("Profil")
         }
         .padding(.top, 8)
     }
@@ -141,9 +153,82 @@ struct HomeView: View {
         .glassCard()
     }
 
+    private var profileMenu: some View {
+        VStack(spacing: 0) {
+            menuButton(.account) {
+                HStack(spacing: 14) {
+                    Image(systemName: "person.crop.circle.fill").font(.largeTitle).foregroundStyle(SeuilTheme.accentGradient)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(name.isEmpty ? "Toi" : name).font(.title3.weight(.semibold))
+                        Text("Voir ton profil").foregroundStyle(SeuilTheme.secondaryInk)
+                    }
+                    Spacer()
+                }
+                .padding(18)
+            }
+            Divider().overlay(Color.white.opacity(0.1))
+            HStack(spacing: 0) {
+                menuButton(.shields) { tile("bolt.shield.fill", "Écrans de blocage") }
+                menuButton(.autofocus) { tile("sparkles", "Autofocus") }
+            }
+            Divider().overlay(Color.white.opacity(0.1))
+            ShareLink(item: "Je reprends la main sur mon téléphone avec Seuil. Chaque app se mérite 🔥") {
+                menuRow("square.and.arrow.up", "Partager Seuil", "Aide un ami à décrocher")
+            }
+            .buttonStyle(.plain)
+            menuButton(.settings) { menuRow("gearshape.fill", "Paramètres", nil) }
+                .accessibilityIdentifier("menu.settings")
+        }
+        .frame(width: 300)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(Color.white.opacity(0.12)))
+        .shadow(color: .black.opacity(0.5), radius: 30, y: 10)
+    }
+
+    private func menuButton<Label: View>(_ route: SettingsRoute, @ViewBuilder label: () -> Label) -> some View {
+        Button {
+            showMenu = false
+            onRoute(route)
+        } label: { label() }
+        .buttonStyle(.plain)
+    }
+
+    private func tile(_ symbol: String, _ title: String) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: symbol).font(.title2).foregroundStyle(SeuilTheme.accentGradient)
+            Text(title).font(.subheadline.weight(.medium))
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 18)
+    }
+
+    private func menuRow(_ symbol: String, _ title: String, _ subtitle: String?) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.title3).foregroundStyle(SeuilTheme.accent).frame(width: 30)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.title3)
+                if let subtitle { Text(subtitle).font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk) }
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 18).padding(.vertical, 14)
+    }
+
     @ViewBuilder
     private var unlockPill: some View {
         let blocked = access.blockedApplications
+        if blocked.isEmpty, access.authorized, !access.state.isFocusActive(now: Date()) {
+            Button(action: onFocus) {
+                HStack(spacing: 10) {
+                    Image(systemName: "play.fill")
+                    Text("Lance un Focus").font(.title3.weight(.semibold))
+                    Image(systemName: "chevron.right")
+                }
+                .padding(.horizontal, 22).padding(.vertical, 14)
+                .background(Capsule().fill(LinearGradient(colors: [SeuilTheme.glow.opacity(0.9), Color.white.opacity(0.1)], startPoint: .leading, endPoint: .trailing)))
+                .overlay(Capsule().strokeBorder(SeuilTheme.accentGradient.opacity(0.6)))
+            }
+            .buttonStyle(.plain)
+        }
         if let first = blocked.first {
             Button { onUnlock(first) } label: {
                 HStack(spacing: 10) {

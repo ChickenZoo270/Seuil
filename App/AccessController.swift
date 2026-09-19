@@ -78,7 +78,10 @@ final class AccessController: ObservableObject {
                 try save(current)
                 return current
             }
-            if restart { try restartMonitoring(updated) }
+            if restart {
+                try restartMonitoring(updated)
+                NotificationScheduler.reschedule(state: updated)
+            }
             refresh()
         } catch { message = error.localizedDescription }
     }
@@ -141,6 +144,7 @@ final class AccessController: ObservableObject {
 
     func setPreferences(_ preferences: Preferences) {
         let alertsChanged = preferences.usageAlerts != state.preferences.usageAlerts
+            || preferences.autofocusFrequency != state.preferences.autofocusFrequency
         mutate(restart: alertsChanged) { $0.preferences = preferences }
         if alertsChanged, preferences.usageAlerts { Task { await requestNotifications() } }
     }

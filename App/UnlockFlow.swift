@@ -8,6 +8,7 @@ struct UnlockFlow: View {
     let application: ApplicationToken
     let state: SharedState
     let onGranted: (Int) -> Void
+    var onEmergency: (() -> Void)? = nil
     let onDismiss: () -> Void
     @State private var minutes = Policy.defaultUnlockMinutes
 
@@ -24,6 +25,14 @@ struct UnlockFlow: View {
             Text(blockReason(rule: rule, now: now)).font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
             if state.isStrictlyBlocked(application, now: now) {
                 Label("Mode strict : aucun déblocage avant la fin.", systemImage: "lock.fill").font(.headline)
+                if let onEmergency, EmergencyPass.isAvailable(lastUsed: state.preferences.emergencyPassUsedAt, now: now) {
+                    Button(action: onEmergency) {
+                        Label("Utiliser mon pass d’urgence (\(EmergencyPass.minutes) min)", systemImage: "ticket.fill")
+                    }
+                    .buttonStyle(PillButtonStyle())
+                    Text("Une fois par semaine. À garder pour les vraies urgences.")
+                        .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+                }
             } else if remaining == 0 {
                 Label("Plus aucun déblocage aujourd’hui. Rendez-vous demain.", systemImage: "moon.zzz.fill").font(.headline)
             } else {
@@ -36,7 +45,7 @@ struct UnlockFlow: View {
                 .pickerStyle(.segmented)
                 Divider()
                 challenge
-                    .id("\(state.preferences.challenge.rawValue)-\(state.preferences.difficulty.rawValue)")
+                    .id("\(state.preferences.enabledChallenges.map(\.rawValue).sorted())-\(state.preferences.difficulty.rawValue)")
             }
         }
         .padding(16)
@@ -44,7 +53,8 @@ struct UnlockFlow: View {
     }
 
     private var challenge: some View {
-        ChallengeView(preferences: state.preferences, minutes: minutes) { onGranted(minutes) }
+        ChallengeView(preferences: state.preferences, minutes: minutes,
+                      unlocksToday: state.rule(for: application)?.unlocksToday(now: Date()) ?? 0) { onGranted(minutes) }
     }
 
     private func blockReason(rule: AppRule?, now: Date) -> String {

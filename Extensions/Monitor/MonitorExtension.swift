@@ -23,6 +23,12 @@ final class MonitorExtension: DeviceActivityMonitor {
                 guard let index = state.rules.firstIndex(where: { $0.id == ruleID }) else { return }
                 state.rules[index].limitReachedAt = Date()
                 state.markDirty(Date())
+                if state.preferences.limitNotifications {
+                    let app = state.rules[index].name ?? "une app"
+                    Notifier.post(title: "Limite atteinte",
+                                  body: "Ton temps libre sur \(app) est écoulé pour aujourd’hui. Chaque ouverture se mérite désormais.",
+                                  id: "limit.\(ruleID)")
+                }
             }
         case .alert(let ruleID, let minutes):
             var message: (title: String, body: String)?

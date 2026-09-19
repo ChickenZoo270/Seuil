@@ -18,7 +18,7 @@ enum Shielding {
         }
         var exceptions = state.allowedApplications.subtracting(state.neverAllowed)
         if let session = state.session, session.isArmed, session.expiresAt > now,
-           !state.isStrictlyBlocked(session.application, now: now) {
+           session.isEmergency || !state.isStrictlyBlocked(session.application, now: now) {
             applications.remove(session.application)
             exceptions.insert(session.application)
         }
@@ -68,7 +68,7 @@ enum DailyMonitoring {
                 events[.init(limitPrefix + rule.id)] = event(for: rule.token, minutes: rule.dailyMinutes)
             }
             guard state.preferences.usageAlerts else { continue }
-            for minutes in UsageAlert.thresholds where rule.dailyMinutes == 0 || minutes < rule.dailyMinutes {
+            for minutes in state.preferences.autofocusThresholds where rule.dailyMinutes == 0 || minutes < rule.dailyMinutes {
                 events[.init("\(alertPrefix)\(rule.id)|\(minutes)")] = event(for: rule.token, minutes: minutes)
             }
         }

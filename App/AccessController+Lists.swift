@@ -56,6 +56,28 @@ extension AccessController {
         }
     }
 
+    var isEmergencyPassAvailable: Bool {
+        EmergencyPass.isAvailable(lastUsed: state.preferences.emergencyPassUsedAt, now: Date())
+    }
+
+    /// Re-applies every shield and re-registers all monitoring, for when something looks stuck.
+    func reload() {
+        do {
+            try restartMonitoring(state)
+            Shielding.apply(state)
+            refresh()
+            NotificationScheduler.reschedule(state: state)
+            message = "Seuil rechargé : règles et blocages réappliqués."
+        } catch { message = error.localizedDescription }
+    }
+
+    func updatePreferences(_ change: (inout Preferences) -> Void) {
+        var preferences = state.preferences
+        change(&preferences)
+        setPreferences(preferences)
+        NotificationScheduler.reschedule(state: state)
+    }
+
     /// In Hard Mode, limits can only get tighter.
     func allowsLoosening() -> Bool { !isHardModeActive }
 }

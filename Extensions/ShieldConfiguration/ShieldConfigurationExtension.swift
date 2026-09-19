@@ -34,8 +34,10 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             title = routine.name
             subtitle = "\(appName) est en pause pendant ta routine."
         } else {
-            title = "Pourquoi maintenant ?"
-            subtitle = "\(appName) se mérite avant chaque ouverture."
+            var rng = SystemRandomNumberGenerator()
+            let message = ShieldPack.pick(from: state?.preferences.shieldPacks ?? [.standard], using: &rng)
+            title = "\(message.pack.emoji) Petit rappel"
+            subtitle = message.text
         }
         if !strict, let remaining = rule?.remainingUnlocks(now: now) {
             subtitle += remaining == 0 ? " Plus de déblocage aujourd’hui." : " Déblocages restants : \(remaining)."

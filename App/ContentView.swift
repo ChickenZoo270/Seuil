@@ -16,10 +16,14 @@ struct ContentView: View {
         }
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { access.refresh() }
+            if phase == .active {
+                access.refresh()
+                NotificationScheduler.reschedule(state: access.state)
+            }
         }
         .task {
             access.refresh()
+            NotificationScheduler.reschedule(state: access.state)
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .seconds(2)) } catch { break }
                 if scenePhase == .active { access.refresh() }
@@ -52,14 +56,15 @@ struct RootView: View {
     @ObservedObject var access: AccessController
     @State private var tab = MainTab.home
     @State private var unlocking: ApplicationToken?
-    @State private var showSettings = false
+    @State private var settingsRoute: SettingsRoute?
 
     var body: some View {
         ZStack(alignment: .bottom) {
             GlowBackground()
             Group {
                 switch tab {
-                case .home: HomeView(access: access, onUnlock: { unlocking = $0 }, onShowApps: { tab = .apps }, onSettings: { showSettings = true })
+                case .home: HomeView(access: access, onUnlock: { unlocking = $0 }, onShowApps: { tab = .apps },
+                                     onFocus: { tab = .timer }, onRoute: { settingsRoute = $0 })
                 case .apps: AppsView(access: access, onUnlock: { unlocking = $0 })
                 case .timer: TimerView(access: access)
                 }
@@ -82,11 +87,23 @@ struct RootView: View {
                 access.dismissPending()
             }
         }
-        .sheet(isPresented: $showSettings) {
-            NavigationStack { SettingsView(access: access) }
-                .presentationBackground(.black)
+        .sheet(item: $settingsRoute) { route in
+            NavigationStack {
+                switch route {
+                case .settings: SettingsView(access: access)
+                case .account: AccountView()
+                case .shields: ShieldDesignView(access: access)
+                case .autofocus: AutofocusView(access: access)
+                }
+            }
+            .presentationBackground(.black)
         }
     }
+}
+
+enum SettingsRoute: String, Identifiable {
+    case settings, account, shields, autofocus
+    var id: String { rawValue }
 }
 
 struct UnlockTarget: Identifiable {
@@ -141,6 +158,12 @@ struct UnlockSheet: View {
                                onGranted: { minutes in
                                    do {
                                        try access.grant(application: application, minutes: minutes)
+                                       onClose()
+                                   } catch { access.message = error.localizedDescription }
+                               },
+                               onEmergency: {
+                                   do {
+                                       try access.grant(application: application, minutes: EmergencyPass.minutes, emergency: true)
                                        onClose()
                                    } catch { access.message = error.localizedDescription }
                                },

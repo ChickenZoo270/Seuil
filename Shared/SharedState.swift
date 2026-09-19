@@ -20,6 +20,29 @@ struct AccessSession: Codable {
     let startedAt: Date
     let expiresAt: Date
     var isArmed: Bool
+    /// Opened with the weekly emergency pass: goes through strict rules and Hard Mode.
+    var isEmergency = false
+
+    init(id: String, application: ApplicationToken, startedAt: Date, expiresAt: Date, isArmed: Bool, isEmergency: Bool = false) {
+        self.id = id
+        self.application = application
+        self.startedAt = startedAt
+        self.expiresAt = expiresAt
+        self.isArmed = isArmed
+        self.isEmergency = isEmergency
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, application, startedAt, expiresAt, isArmed, isEmergency }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        application = try c.decode(ApplicationToken.self, forKey: .application)
+        startedAt = try c.decode(Date.self, forKey: .startedAt)
+        expiresAt = try c.decode(Date.self, forKey: .expiresAt)
+        isArmed = try c.decode(Bool.self, forKey: .isArmed)
+        isEmergency = try c.decodeIfPresent(Bool.self, forKey: .isEmergency) ?? false
+    }
 }
 
 /// One protected app: daily allowance, unlock cap and today's state.
@@ -142,25 +165,83 @@ struct FocusSession: Codable {
 }
 
 struct Preferences: Codable, Equatable {
-    var challenge: ChallengeKind = .math
+    /// Waiting-room exercises; each unlock draws one of them at random.
+    var enabledChallenges: Set<ChallengeKind> = [.pause, .math]
     var difficulty: Difficulty = .medium
+    var resistance: Resistance = .standard
+    /// "Autofocus": pings while a distracting app is used for too long.
     var usageAlerts = true
+    var autofocusFrequency: AutofocusFrequency = .medium
     /// No temporary unlock, no cancelling, no bypass.
     var hardMode = false
     /// Switching Hard Mode off only takes effect after a cooling-off delay.
     var hardModeOffAt: Date?
+    var reminders = true
+    var serviceNotifications = true
+    var unlockReminders = true
+    var dailyReport = true
+    var streakNotifications = true
+    var limitNotifications = true
+    var shieldPacks: Set<ShieldPack> = [.standard]
+    var emergencyPassUsedAt: Date?
 
     init() {}
 
-    private enum CodingKeys: String, CodingKey { case challenge, difficulty, usageAlerts, hardMode, hardModeOffAt }
+    /// The challenge offered first, kept for callers that need a single one.
+    var challenge: ChallengeKind {
+        get { ChallengeKind.allCases.first(where: enabledChallenges.contains) ?? .pause }
+        set { enabledChallenges = [newValue] }
+    }
+
+    var autofocusThresholds: [Int] { autofocusFrequency.thresholds }
+
+    private enum CodingKeys: String, CodingKey {
+        case enabledChallenges, challenge, difficulty, resistance, usageAlerts, autofocusFrequency, hardMode, hardModeOffAt
+        case reminders, serviceNotifications, unlockReminders, dailyReport, streakNotifications, limitNotifications
+        case shieldPacks, emergencyPassUsedAt
+    }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        challenge = try c.decodeIfPresent(ChallengeKind.self, forKey: .challenge) ?? .math
-        difficulty = try c.decodeIfPresent(Difficulty.self, forKey: .difficulty) ?? .medium
-        usageAlerts = try c.decodeIfPresent(Bool.self, forKey: .usageAlerts) ?? true
-        hardMode = try c.decodeIfPresent(Bool.self, forKey: .hardMode) ?? false
+        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) throws -> T { try c.decodeIfPresent(T.self, forKey: key) ?? fallback }
+        if let set = try c.decodeIfPresent(Set<ChallengeKind>.self, forKey: .enabledChallenges), !set.isEmpty {
+            enabledChallenges = set
+        } else if let single = try c.decodeIfPresent(ChallengeKind.self, forKey: .challenge) {
+            enabledChallenges = [single]
+        }
+        difficulty = try value(.difficulty, .medium)
+        resistance = try value(.resistance, .standard)
+        usageAlerts = try value(.usageAlerts, true)
+        autofocusFrequency = try value(.autofocusFrequency, .medium)
+        hardMode = try value(.hardMode, false)
         hardModeOffAt = try c.decodeIfPresent(Date.self, forKey: .hardModeOffAt)
+        reminders = try value(.reminders, true)
+        serviceNotifications = try value(.serviceNotifications, true)
+        unlockReminders = try value(.unlockReminders, true)
+        dailyReport = try value(.dailyReport, true)
+        streakNotifications = try value(.streakNotifications, true)
+        limitNotifications = try value(.limitNotifications, true)
+        shieldPacks = try value(.shieldPacks, [.standard])
+        emergencyPassUsedAt = try c.decodeIfPresent(Date.self, forKey: .emergencyPassUsedAt)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(enabledChallenges, forKey: .enabledChallenges)
+        try c.encode(difficulty, forKey: .difficulty)
+        try c.encode(resistance, forKey: .resistance)
+        try c.encode(usageAlerts, forKey: .usageAlerts)
+        try c.encode(autofocusFrequency, forKey: .autofocusFrequency)
+        try c.encode(hardMode, forKey: .hardMode)
+        try c.encodeIfPresent(hardModeOffAt, forKey: .hardModeOffAt)
+        try c.encode(reminders, forKey: .reminders)
+        try c.encode(serviceNotifications, forKey: .serviceNotifications)
+        try c.encode(unlockReminders, forKey: .unlockReminders)
+        try c.encode(dailyReport, forKey: .dailyReport)
+        try c.encode(streakNotifications, forKey: .streakNotifications)
+        try c.encode(limitNotifications, forKey: .limitNotifications)
+        try c.encode(shieldPacks, forKey: .shieldPacks)
+        try c.encodeIfPresent(emergencyPassUsedAt, forKey: .emergencyPassUsedAt)
     }
 
     func isHardModeActive(now: Date) -> Bool {
@@ -274,7 +355,7 @@ struct SharedState: Codable {
 
 enum AppError: LocalizedError {
     case storage, unsupportedSelection, unauthorized, unavailableApplication, activeSession, invalidDecision
-    case strict, quotaReached, invalidRoutine, focusActive, hardMode
+    case strict, quotaReached, invalidRoutine, focusActive, hardMode, emergencyUsed
     var errorDescription: String? {
         switch self {
         case .storage: return "Le stockage partagé est inaccessible. Vérifie la configuration App Groups."
@@ -288,6 +369,7 @@ enum AppError: LocalizedError {
         case .invalidRoutine: return "Une routine doit durer au moins 15 minutes, sur au moins un jour, avec au moins une app."
         case .focusActive: return "Une session Focus est déjà en cours."
         case .hardMode: return "Hard Mode actif : impossible d’assouplir tes règles pour l’instant."
+        case .emergencyUsed: return "Ton pass d’urgence de la semaine est déjà utilisé."
         }
     }
 }

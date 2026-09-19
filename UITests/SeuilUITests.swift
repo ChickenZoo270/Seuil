@@ -24,6 +24,12 @@ final class SeuilUITests: XCTestCase {
         XCTAssertTrue(heading.label.contains("Reprends la main"))
         primary.tap()
 
+        XCTAssertTrue(heading.label.contains("appelles"))
+        let nameField = app.textFields["onboarding.name"]
+        nameField.tap()
+        nameField.typeText("Adrien\n")
+        primary.tap()
+
         XCTAssertTrue(heading.label.contains("Combien de temps"))
         XCTAssertTrue(app.staticTexts["4 h"].exists, "default is 4 hours a day")
         primary.tap()
@@ -50,7 +56,7 @@ final class SeuilUITests: XCTestCase {
         app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Phrase à recopier")).firstMatch.tap()
         primary.tap()
 
-        XCTAssertTrue(heading.label.contains("règles"))
+        XCTAssertTrue(heading.label.contains("Adrien, voici les règles"), heading.label)
         XCTAssertTrue(app.buttons["Travail"].isSelected, "work routine is proposed by default")
         primary.tap()
 
@@ -62,7 +68,7 @@ final class SeuilUITests: XCTestCase {
     func testMathChallengeCanBeSolved() {
         let app = launch(onboarded: true)
         openSettings(app)
-        selectChallenge("Calcul mental", in: app)
+        selectChallenge("Jeux de maths", in: app)
         app.buttons["settings.tryChallenge"].tap()
 
         let first = app.staticTexts["math.problem.0"]
@@ -83,7 +89,7 @@ final class SeuilUITests: XCTestCase {
     func testWrongMathAnswerGivesNewProblems() {
         let app = launch(onboarded: true)
         openSettings(app)
-        selectChallenge("Calcul mental", in: app)
+        selectChallenge("Jeux de maths", in: app)
         app.buttons["settings.tryChallenge"].tap()
 
         let first = app.staticTexts["math.problem.0"]
@@ -114,7 +120,7 @@ final class SeuilUITests: XCTestCase {
         input.typeText(text)
         app.buttons["Valider"].tap()
         XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: timeout))
-        selectChallenge("Calcul mental", in: app)
+        selectChallenge("Jeux de maths", in: app)
     }
 
     func testRoutineTemplateNeedsAppsBeforeSaving() {
@@ -154,7 +160,7 @@ final class SeuilUITests: XCTestCase {
     func testPauseChallengeUnlocksAfterCountdown() {
         let app = launch(onboarded: true)
         openSettings(app)
-        selectChallenge("Pause respiration", in: app)
+        selectChallenge("Exercices de respiration", in: app)
         app.buttons["Facile"].tap()
         app.buttons["settings.tryChallenge"].tap()
 
@@ -166,7 +172,7 @@ final class SeuilUITests: XCTestCase {
         proceed.tap()
         XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: timeout))
         app.buttons["Moyen"].tap()
-        selectChallenge("Calcul mental", in: app)
+        selectChallenge("Jeux de maths", in: app)
     }
 
     func testReasonChallengeAcceptsConcreteAndRefusesScrolling() {
@@ -190,19 +196,53 @@ final class SeuilUITests: XCTestCase {
         editor.typeText("Répondre au message de Léa pour samedi soir")
         app.buttons["Valider mon motif"].tap()
         XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: 30))
-        selectChallenge("Calcul mental", in: app)
+        selectChallenge("Jeux de maths", in: app)
     }
 
+    func testPuzzleChallengeInOrder() {
+        let app = launch(onboarded: true)
+        openSettings(app)
+        selectChallenge("Jeux de puzzle", in: app)
+        app.buttons["Facile"].tap()
+        app.buttons["settings.tryChallenge"].tap()
+        let first = app.buttons["puzzle.1"]
+        XCTAssertTrue(first.waitForExistence(timeout: timeout))
+        for value in 1...9 { app.buttons["puzzle.\(value)"].tap() }
+        XCTAssertTrue(app.staticTexts["settings.challengeResult"].waitForExistence(timeout: timeout))
+        app.buttons["Moyen"].tap()
+        selectChallenge("Jeux de maths", in: app)
+    }
+
+    /// Profile menu › Paramètres › Salle d’attente, where challenges are chosen.
     private func openSettings(_ app: XCUIApplication) {
-        let settings = app.buttons["home.settings"]
+        let profile = app.buttons["home.settings"]
+        XCTAssertTrue(profile.waitForExistence(timeout: timeout))
+        profile.tap()
+        let settings = app.buttons["menu.settings"]
         XCTAssertTrue(settings.waitForExistence(timeout: timeout))
         settings.tap()
+        let waitingRoom = app.buttons["settings.waitingRoom"]
+        XCTAssertTrue(waitingRoom.waitForExistence(timeout: timeout))
+        waitingRoom.tap()
+        XCTAssertTrue(app.buttons["settings.tryChallenge"].waitForExistence(timeout: timeout))
     }
 
+    private static let challengeTitles = ["Exercices de respiration", "Jeux de maths", "Jeux de puzzle", "Phrase à recopier", "Motif valable"]
+
+    /// Leaves exactly one challenge enabled so "Essayer le défi" is deterministic.
     private func selectChallenge(_ title: String, in app: XCUIApplication) {
-        let option = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", title)).firstMatch
-        XCTAssertTrue(option.waitForExistence(timeout: timeout))
-        option.tap()
+        let wanted = app.switches[title]
+        XCTAssertTrue(wanted.waitForExistence(timeout: timeout), title)
+        if (wanted.value as? String) != "1" { tapSwitch(wanted, in: app) }
+        for other in Self.challengeTitles where other != title {
+            let toggle = app.switches[other]
+            if toggle.exists, (toggle.value as? String) == "1" { tapSwitch(toggle, in: app) }
+        }
+    }
+
+    private func tapSwitch(_ toggle: XCUIElement, in app: XCUIApplication) {
+        if !toggle.isHittable { app.swipeUp() }
+        toggle.switches.firstMatch.exists ? toggle.switches.firstMatch.tap() : toggle.tap()
     }
 
     /// Solves "a + b", "a × b" and "a × b − c" as shown by the math challenge.

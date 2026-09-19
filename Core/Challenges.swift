@@ -2,13 +2,14 @@ import Foundation
 
 /// How an unlock has to be earned.
 public enum ChallengeKind: String, Codable, CaseIterable, Sendable {
-    case math, typing, pause, reason
+    case pause, math, puzzle, typing, reason
 
     public var title: String {
         switch self {
-        case .math: return "Calcul mental"
+        case .math: return "Jeux de maths"
         case .typing: return "Phrase à recopier"
-        case .pause: return "Pause respiration"
+        case .pause: return "Exercices de respiration"
+        case .puzzle: return "Jeux de puzzle"
         case .reason: return "Motif valable"
         }
     }
@@ -17,7 +18,8 @@ public enum ChallengeKind: String, Codable, CaseIterable, Sendable {
         switch self {
         case .math: return "Résous quelques calculs sans calculatrice."
         case .typing: return "Recopie une phrase qui te fait réfléchir."
-        case .pause: return "Attends en respirant avant d’ouvrir l’app."
+        case .pause: return "Respiration guidée pour te détendre et te recentrer."
+        case .puzzle: return "Touche les nombres dans l’ordre, le plus vite possible."
         case .reason: return "Explique ce que tu viens faire. Le scroll sans but est refusé."
         }
     }

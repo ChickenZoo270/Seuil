@@ -10,7 +10,7 @@ struct OnboardingView: View {
     let onFinish: () -> Void
 
     private enum Step: Int, CaseIterable {
-        case welcome, hours, projection, goals, essentials, unlock, hardMode, challenge, rules, permissions, apps, done
+        case welcome, name, hours, projection, goals, essentials, unlock, hardMode, challenge, rules, permissions, apps, done
     }
     private static let goals = ["Me concentrer au travail", "Mieux dormir", "Être présent avec mes proches",
                                 "Lire et apprendre", "Faire du sport", "Arrêter de scroller par réflexe"]
@@ -32,8 +32,9 @@ struct OnboardingView: View {
     ]
 
     @State private var step = Step.welcome
-    @State private var hours = 4.0
-    @State private var age = 25
+    @AppStorage("profile.hours") private var hours = 4.0
+    @AppStorage("profile.age") private var age = 25
+    @AppStorage("profile.name") private var name = ""
     @State private var chosenGoals: Set<String> = []
     @State private var challenge = ChallengeKind.math
     @State private var hardMode = false
@@ -81,6 +82,16 @@ struct OnboardingView: View {
             GlowOrb(size: 190).padding(.vertical, 30)
             heading("Reprends la main sur ton téléphone.")
             paragraph("Seuil verrouille les apps que tu ouvres sans cesse. Chaque déblocage se mérite, pour que tu choisisses vraiment ce que tu fais de ton temps.")
+        case .name:
+            heading("Comment tu t’appelles ?")
+            paragraph("Seuil t’accompagne au quotidien. Autant faire connaissance.")
+            TextField("Ton prénom", text: $name)
+                .font(.title2)
+                .multilineTextAlignment(.center)
+                .textInputAutocapitalization(.words)
+                .padding(18)
+                .background(Color.white.opacity(0.08), in: Capsule())
+                .accessibilityIdentifier("onboarding.name")
         case .hours:
             heading("Combien de temps passes-tu sur ton téléphone chaque jour ?")
             paragraph("Regarde dans Réglages › Temps d’écran si tu veux le chiffre exact.")
@@ -139,7 +150,7 @@ struct OnboardingView: View {
                 choiceRow(kind.title, detail: kind.summary, selected: challenge == kind) { challenge = kind }
             }
         case .rules:
-            heading("Voici les règles que je te propose")
+            heading(name.isEmpty ? "Voici les règles que je te propose" : "\(name), voici les règles que je te propose")
             paragraph("Touche une carte pour l’ajouter ou la retirer. Tu pourras tout modifier plus tard.")
             proposalCarousel
         case .permissions:
