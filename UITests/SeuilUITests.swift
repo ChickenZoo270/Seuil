@@ -10,7 +10,7 @@ final class SeuilUITests: XCTestCase {
 
     private func launch(onboarded: Bool) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-seuil.onboarded", onboarded ? "YES" : "NO"]
+        app.launchArguments = [onboarded ? "--skip-onboarding" : "--reset-onboarding"]
         app.launch()
         return app
     }
