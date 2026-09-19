@@ -70,9 +70,9 @@ extension AccessController {
         message = "Session terminée. L’app est à nouveau protégée."
     }
 
-    /// Strict "block everything now" session. It cannot be ended early.
-    func startFocus(minutes: Int) {
-        guard FocusMonitoring.options.contains(minutes) else { return }
+    /// "Block everything now" session from the timer. Strict ones cannot be unlocked.
+    func startFocus(minutes: Int, name: String = "Minuteur", strict: Bool = true) {
+        guard FocusMonitoring.range.contains(minutes) else { return }
         guard state.focus == nil || !state.isFocusActive(now: Date()) else { message = AppError.focusActive.localizedDescription; return }
         let start = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
         let id = FocusMonitoring.prefix + UUID().uuidString
@@ -84,11 +84,12 @@ extension AccessController {
         }
         let sessionID = state.session?.id
         mutate { current in
-            current.focus = FocusSession(id: id, endsAt: start.addingTimeInterval(TimeInterval(minutes * 60)))
+            current.focus = FocusSession(id: id, endsAt: start.addingTimeInterval(TimeInterval(minutes * 60)),
+                                         name: name, isStrict: strict || current.preferences.isHardModeActive(now: start))
             // Focus closes any open unlock.
             current.session = nil
         }
         if let sessionID { center.stopMonitoring([.init(sessionID)]) }
-        message = "Focus \(minutes) min lancé. Tout est bloqué jusqu’à la fin."
+        message = "\(name) lancé : tout est bloqué pendant \(Scoring.duration(Double(minutes)))."
     }
 }

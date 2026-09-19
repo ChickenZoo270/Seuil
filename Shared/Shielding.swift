@@ -125,6 +125,8 @@ enum RoutineMonitoring {
 enum FocusMonitoring {
     static let prefix = "focus."
     static let options = [25, 50, 90]
+    /// From a quick pause to a full day of digital detox.
+    static let range = 5...(24 * 60)
 }
 
 enum Notifier {

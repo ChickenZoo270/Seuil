@@ -30,6 +30,7 @@ final class AccessController: ObservableObject {
 
     func refresh() {
         authorized = AuthorizationCenter.shared.authorizationStatus == .approved
+        defer { settleHardMode() }
         Task {
             let settings = await UNUserNotificationCenter.current().notificationSettings()
             notificationsAllowed = settings.authorizationStatus == .authorized
@@ -109,6 +110,11 @@ final class AccessController: ObservableObject {
 
     func setDailyLimit(_ minutes: Int, for token: ApplicationToken) {
         guard Policy.dailyLimitOptions.contains(minutes) else { return }
+        if isHardModeActive, let old = state.rule(for: token)?.dailyMinutes,
+           !(minutes == 0 || (old > 0 && minutes < old)) {
+            message = AppError.hardMode.localizedDescription
+            return
+        }
         updateRule(token) { rule in
             rule.dailyMinutes = minutes
             // Re-evaluated from today's real usage when monitoring restarts.
@@ -118,6 +124,11 @@ final class AccessController: ObservableObject {
 
     func setMaxUnlocks(_ count: Int, for token: ApplicationToken) {
         guard UnlockQuota.options.contains(count) else { return }
+        if isHardModeActive, let old = state.rule(for: token)?.maxUnlocks,
+           !(count != 0 && (old == 0 || count < old)) {
+            message = AppError.hardMode.localizedDescription
+            return
+        }
         updateRule(token) { $0.maxUnlocks = count }
     }
 

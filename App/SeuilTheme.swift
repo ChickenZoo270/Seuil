@@ -1,22 +1,20 @@
 import SwiftUI
 import UIKit
 
+/// Seuil is dark-first: black canvas, soft green glow, mint accents.
 enum SeuilTheme {
-    static let paper = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.07, green: 0.12, blue: 0.15, alpha: 1) : UIColor(red: 0.93, green: 0.95, blue: 0.96, alpha: 1)
-    })
-    static let ink = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.86, green: 0.93, blue: 0.96, alpha: 1) : UIColor(red: 0.09, green: 0.24, blue: 0.30, alpha: 1)
-    })
-    static let accent = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.62, green: 0.80, blue: 0.89, alpha: 1) : UIColor(red: 0.14, green: 0.33, blue: 0.41, alpha: 1)
-    })
-    static let secondaryInk = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.68, green: 0.78, blue: 0.84, alpha: 1) : UIColor(red: 0.30, green: 0.39, blue: 0.43, alpha: 1)
-    })
-    static let onAccent = Color(uiColor: UIColor { traits in
-        traits.userInterfaceStyle == .dark ? UIColor(red: 0.07, green: 0.12, blue: 0.15, alpha: 1) : .white
-    })
+    static let paper = Color.black
+    static let ink = Color.white
+    static let secondaryInk = Color.white.opacity(0.58)
+    static let accent = Color(red: 0.66, green: 0.95, blue: 0.80)
+    static let onAccent = Color.black
+    static let glow = Color(red: 0.36, green: 0.55, blue: 0.45)
+    static let card = Color.white.opacity(0.06)
+    static let danger = Color(red: 0.98, green: 0.36, blue: 0.47)
+    static let success = Color(red: 0.20, green: 0.85, blue: 0.70)
+    static let accentGradient = LinearGradient(
+        colors: [Color(red: 0.86, green: 0.96, blue: 0.62), Color(red: 0.66, green: 0.95, blue: 0.80), Color(red: 0.55, green: 0.90, blue: 0.95)],
+        startPoint: .leading, endPoint: .trailing)
 }
 
 struct SeuilMark: View {

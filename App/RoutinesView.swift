@@ -107,6 +107,10 @@ struct RoutineEditor: View {
                 }
             }
             Section {
+                Toggle("Bloquer toutes les apps", isOn: $routine.blocksAll)
+            } footer: { Text("Sauf tes apps toujours autorisées, à définir dans Mes Apps.") }
+            if !routine.blocksAll {
+            Section {
                 Button(routine.isEmpty ? "Choisir les apps à bloquer" : "Modifier les apps à bloquer") {
                     selection = FamilyActivitySelection()
                     selection.applicationTokens = routine.applications
@@ -118,6 +122,7 @@ struct RoutineEditor: View {
                         .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
                 }
             } header: { Text("À bloquer") } footer: { Text("Tu peux choisir des catégories entières, comme Réseaux sociaux ou Jeux.") }
+            }
             Section {
                 Toggle("Mode strict", isOn: $routine.isStrict)
             } footer: { Text("En mode strict, aucun défi ne permet de débloquer une app pendant la routine, et la routine ne peut pas être désactivée tant qu’elle est en cours.") }
@@ -125,6 +130,8 @@ struct RoutineEditor: View {
                 Section { Button("Supprimer la routine", role: .destructive) { onDelete(); dismiss() } }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color.black)
         .navigationTitle(isNew ? "Nouvelle routine" : routine.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

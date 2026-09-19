@@ -114,19 +114,25 @@ struct PauseChallengeView: View {
     @State private var inhale = false
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text(remaining > 0 ? (inhale ? "Inspire…" : "Expire…") : "Tu peux continuer, si tu en as encore envie.")
-                .font(.headline)
-            Circle()
-                .fill(SeuilTheme.accent.opacity(0.18))
-                .overlay(Text(remaining > 0 ? "\(remaining)" : "✓").font(.system(size: 40, design: .rounded).monospacedDigit()))
-                .frame(width: 160, height: 160)
-                .scaleEffect(inhale ? 1 : 0.7)
-                .animation(.easeInOut(duration: 4), value: inhale)
+        VStack(spacing: 18) {
+            ZStack {
+                DriftingSky()
+                BreathingRing(size: 170, expanded: inhale)
+                VStack(spacing: 6) {
+                    Text(remaining > 0 ? (inhale ? "Inspire…" : "Expire…") : "Prêt")
+                        .font(.title2.weight(.semibold))
+                    Text(remaining > 0 ? "\(remaining)" : "✓")
+                        .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+                }
+                .foregroundStyle(.white)
+                .shadow(radius: 6)
+            }
+            .frame(height: 320)
+            .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
             Text("Reste sur cet écran. Quitter Seuil relance la pause.")
                 .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
             Button("Continuer", action: onPassed)
-                .buttonStyle(.borderedProminent).foregroundStyle(SeuilTheme.onAccent)
+                .buttonStyle(PillButtonStyle(variant: .bright))
                 .disabled(remaining > 0)
         }
         .frame(maxWidth: .infinity)

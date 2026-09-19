@@ -1,21 +1,20 @@
 import SwiftUI
+import ManagedSettings
 
 struct ContentView: View {
     @StateObject private var access = AccessController()
     @Environment(\.scenePhase) private var scenePhase
-    @State private var tab = Tab.today
     @AppStorage("seuil.onboarded") private var onboarded = false
-
-    enum Tab { case today, routines, settings }
 
     var body: some View {
         Group {
             if onboarded {
-                tabs
+                RootView(access: access)
             } else {
                 OnboardingView(access: access) { withAnimation { onboarded = true } }
             }
         }
+        .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { access.refresh() }
         }
@@ -27,24 +26,135 @@ struct ContentView: View {
             }
         }
     }
+}
 
-    private var tabs: some View {
-        TabView(selection: $tab) {
-            NavigationStack { TodayView(access: access).toolbar(.hidden, for: .navigationBar) }
-                .tabItem { Label("Aujourd’hui", systemImage: "hand.raised") }
-                .tag(Tab.today)
-            NavigationStack { RoutinesView(access: access) }
-                .tabItem { Label("Routines", systemImage: "calendar.badge.clock") }
-                .tag(Tab.routines)
-            NavigationStack { SettingsView(access: access) }
-                .tabItem { Label("Réglages", systemImage: "slider.horizontal.3") }
-                .tag(Tab.settings)
+enum MainTab: CaseIterable {
+    case home, apps, timer
+
+    var title: String {
+        switch self {
+        case .home: return "Accueil"
+        case .apps: return "Mes Apps"
+        case .timer: return "Minuteur"
         }
-        .foregroundStyle(SeuilTheme.ink)
+    }
+
+    var symbol: String {
+        switch self {
+        case .home: return "circle.circle"
+        case .apps: return "square.grid.2x2.fill"
+        case .timer: return "play.fill"
+        }
+    }
+}
+
+struct RootView: View {
+    @ObservedObject var access: AccessController
+    @State private var tab = MainTab.home
+    @State private var unlocking: ApplicationToken?
+    @State private var showSettings = false
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            GlowBackground()
+            Group {
+                switch tab {
+                case .home: HomeView(access: access, onUnlock: { unlocking = $0 }, onShowApps: { tab = .apps }, onSettings: { showSettings = true })
+                case .apps: AppsView(access: access, onUnlock: { unlocking = $0 })
+                case .timer: TimerView(access: access)
+                }
+            }
+            .transition(.opacity)
+            FloatingTabBar(selection: $tab)
+                .padding(.bottom, 6)
+        }
+        .foregroundStyle(.white)
         .tint(SeuilTheme.accent)
-        // A shield's "earn an unlock" button brings the user straight to the unlock flow.
+        // A shield's "earn an unlock" button brings the user straight to the challenge.
         .onChange(of: access.state.pendingApplication) { _, pending in
-            if pending != nil { tab = .today }
+            if let pending { unlocking = pending }
         }
+        .onAppear { if let pending = access.state.pendingApplication { unlocking = pending } }
+        .sheet(item: Binding(get: { unlocking.map(UnlockTarget.init) },
+                             set: { if $0 == nil { unlocking = nil; access.dismissPending() } })) { target in
+            UnlockSheet(access: access, application: target.token) {
+                unlocking = nil
+                access.dismissPending()
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack { SettingsView(access: access) }
+                .presentationBackground(.black)
+        }
+    }
+}
+
+struct UnlockTarget: Identifiable {
+    let token: ApplicationToken
+    var id: Int { token.hashValue }
+}
+
+struct FloatingTabBar: View {
+    @Binding var selection: MainTab
+    @Namespace private var highlight
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(MainTab.allCases, id: \.self) { tab in
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { selection = tab }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: tab.symbol).font(.system(size: 22, weight: .semibold))
+                        Text(tab.title).font(.caption.weight(.medium))
+                    }
+                    .frame(width: 96, height: 58)
+                    .background {
+                        if selection == tab {
+                            Capsule().fill(Color.white.opacity(0.14)).matchedGeometryEffect(id: "tab", in: highlight)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.title)
+                .accessibilityAddTraits(selection == tab ? .isSelected : [])
+            }
+        }
+        .padding(6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.1)))
+        .shadow(color: .black.opacity(0.5), radius: 20, y: 8)
+    }
+}
+
+/// Full-screen unlock: why it is blocked, how long, then the chosen challenge.
+struct UnlockSheet: View {
+    @ObservedObject var access: AccessController
+    let application: ApplicationToken
+    let onClose: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    UnlockFlow(application: application, state: access.state,
+                               onGranted: { minutes in
+                                   do {
+                                       try access.grant(application: application, minutes: minutes)
+                                       onClose()
+                                   } catch { access.message = error.localizedDescription }
+                               },
+                               onDismiss: onClose)
+                    if !access.message.isEmpty {
+                        Text(access.message).font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+                    }
+                }
+                .padding(20)
+            }
+            .background(GlowBackground())
+            .navigationTitle("Débloquer")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationBackground(.black)
     }
 }

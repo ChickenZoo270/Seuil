@@ -42,11 +42,26 @@ struct SettingsView: View {
             } footer: {
                 Text("Une notification à \(UsageAlert.thresholds.map { "\($0) min" }.joined(separator: ", ")) d’utilisation par jour de chaque app verrouillée.")
             }
+            Section {
+                Toggle("Hard Mode", isOn: Binding(get: { access.isHardModeActive },
+                                                  set: { access.setHardMode($0) }))
+                    .accessibilityIdentifier("settings.hardMode")
+                if let offAt = access.state.preferences.hardModeOffAt, access.isHardModeActive {
+                    Text("Désactivation le \(offAt.formatted(date: .abbreviated, time: .shortened)).")
+                        .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+                }
+            } header: {
+                Text("Engagement")
+            } footer: {
+                Text("En Hard Mode, aucun déblocage temporaire, aucune annulation et aucun contournement : tu ne peux que durcir tes règles. Le désactiver prend 24 heures.")
+            }
             Section("Confidentialité") {
                 Text("Seuil ne voit jamais le nom ni le contenu de tes apps : iOS ne lui donne que des jetons anonymes. Tout reste sur ton iPhone.")
                     .font(.footnote)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(GlowBackground())
         .navigationTitle("Réglages")
         .sheet(isPresented: $tryingChallenge) {
             NavigationStack {
