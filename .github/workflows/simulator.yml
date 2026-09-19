@@ -1,7 +1,6 @@
 name: Simulator launch smoke test
+# Manual only: macOS minutes count 10x against the monthly Actions quota.
 on:
-  push:
-    paths: ['.github/workflows/simulator.yml', 'App/**', 'Shared/**', 'Core/**', 'Extensions/**', 'UITests/**', 'project.yml']
   workflow_dispatch:
 permissions:
   contents: read

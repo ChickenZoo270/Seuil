@@ -1,7 +1,6 @@
 name: Import Seuil sources
+# Manual only: macOS minutes count 10x against the monthly Actions quota.
 on:
-  push:
-    paths: ['.github/workflows/import-source.yml']
   workflow_dispatch:
 permissions:
   contents: write
