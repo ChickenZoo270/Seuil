@@ -1,5 +1,6 @@
 import SwiftUI
 import FamilyControls
+import ManagedSettings
 import IntentionCore
 
 /// First launch: wake-up call, goals, essentials, how unlocking works, Hard Mode,
