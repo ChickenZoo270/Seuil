@@ -1,6 +1,7 @@
 name: Verify iPhone MVP
-# Manual only: macOS minutes count 10x against the monthly Actions quota.
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read

@@ -24,6 +24,7 @@ struct HomeView: View {
     let onShowApps: () -> Void
     let onFocus: () -> Void
     let onRoute: (SettingsRoute) -> Void
+    let onDoors: () -> Void
     @State private var showDetail = false
     @State private var showMenu = false
     @AppStorage("profile.name") private var name = ""
@@ -33,7 +34,10 @@ struct HomeView: View {
         ScrollView {
             VStack(spacing: 24) {
                 header
-                GlowOrb(size: 170).padding(.vertical, 8)
+                Button(action: onDoors) { hero }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.hero")
+                    .accessibilityLabel("Tes portes")
                 if access.authorized {
                     // The report is drawn out of process and swallows taps: a clear layer opens the detail.
                     DeviceActivityReport(.home, filter: filter)
@@ -66,6 +70,21 @@ struct HomeView: View {
         }
         .onAppear { filter = todayFilter() }
         .sheet(isPresented: $showDetail) { ScoreDetailSheet(filter: filter) }
+    }
+
+    /// The most advanced door earned so far, or the orb until the first one opens.
+    @ViewBuilder
+    private var hero: some View {
+        if let door = Door.latest(access.state.progressStats(now: Date())) {
+            VStack(spacing: 10) {
+                DoorScene(door: door, locked: false)
+                    .frame(height: 300)
+                    .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+                Text(door.title).font(.headline).foregroundStyle(SeuilTheme.secondaryInk)
+            }
+        } else {
+            GlowOrb(size: 170).padding(.vertical, 8)
+        }
     }
 
     private var header: some View {
@@ -175,6 +194,11 @@ struct HomeView: View {
             ShareLink(item: "Je reprends la main sur mon téléphone avec Seuil. Chaque app se mérite 🔥") {
                 menuRow("square.and.arrow.up", "Partager Seuil", "Aide un ami à décrocher")
             }
+            .buttonStyle(.plain)
+            Button {
+                showMenu = false
+                onDoors()
+            } label: { menuRow("door.left.hand.open", "Mes portes", "Tes seuils franchis") }
             .buttonStyle(.plain)
             menuButton(.settings) { menuRow("gearshape.fill", "Paramètres", nil) }
                 .accessibilityIdentifier("menu.settings")

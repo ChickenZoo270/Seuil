@@ -53,9 +53,24 @@ enum MainTab: CaseIterable {
     }
 }
 
+/// Any screen can ask for the paywall through the environment.
+struct RequestProKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+extension EnvironmentValues {
+    var requestPro: () -> Void {
+        get { self[RequestProKey.self] }
+        set { self[RequestProKey.self] = newValue }
+    }
+}
+
 struct RootView: View {
     @ObservedObject var access: AccessController
+    @StateObject private var store = ProStore()
     @State private var tab = MainTab.home
+    @State private var showPaywall = false
+    @State private var showDoors = false
     @State private var unlocking: ApplicationToken?
     @State private var settingsRoute: SettingsRoute?
 
@@ -65,7 +80,7 @@ struct RootView: View {
             Group {
                 switch tab {
                 case .home: HomeView(access: access, onUnlock: { unlocking = $0 }, onShowApps: { tab = .apps },
-                                     onFocus: { tab = .timer }, onRoute: { settingsRoute = $0 })
+                                     onFocus: { tab = .timer }, onRoute: { settingsRoute = $0 }, onDoors: { showDoors = true })
                 case .apps: AppsView(access: access, onUnlock: { unlocking = $0 })
                 case .timer: TimerView(access: access)
                 }
@@ -76,6 +91,10 @@ struct RootView: View {
         }
         .foregroundStyle(.white)
         .tint(SeuilTheme.accent)
+        .environmentObject(store)
+        .environment(\.requestPro, { showPaywall = true })
+        .sheet(isPresented: $showPaywall) { PaywallView(store: store) }
+        .fullScreenCover(isPresented: $showDoors) { DoorsView(access: access) }
         // A shield's "earn an unlock" button brings the user straight to the challenge.
         .onChange(of: access.state.pendingApplication) { _, pending in
             if let pending { unlocking = pending }
@@ -91,7 +110,7 @@ struct RootView: View {
         .sheet(item: $settingsRoute) { route in
             NavigationStack {
                 switch route {
-                case .settings: SettingsView(access: access)
+                case .settings: SettingsView(access: access, store: store)
                 case .account: AccountView()
                 case .shields: ShieldDesignView(access: access)
                 case .autofocus: AutofocusView(access: access)
@@ -163,10 +182,8 @@ struct UnlockSheet: View {
                                    } catch { access.message = error.localizedDescription }
                                },
                                onEmergency: {
-                                   do {
-                                       try access.grant(application: application, minutes: EmergencyPass.minutes, emergency: true)
-                                       onClose()
-                                   } catch { access.message = error.localizedDescription }
+                                   access.useEmergencyPass()
+                                   if access.state.isEmergencyActive(now: Date()) { onClose() }
                                },
                                onDismiss: onClose)
                     if !access.message.isEmpty {

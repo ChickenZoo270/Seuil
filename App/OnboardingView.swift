@@ -37,7 +37,6 @@ struct OnboardingView: View {
     @AppStorage("profile.name") private var name = ""
     @State private var chosenGoals: Set<String> = []
     @State private var challenge = ChallengeKind.math
-    @State private var hardMode = false
     @State private var chosenRules: Set<String> = ["work", "limit"]
     @State private var picker: PickerTarget?
     @State private var selection = FamilyActivitySelection()
@@ -130,7 +129,7 @@ struct OnboardingView: View {
                 .overlay(Capsule().strokeBorder(SeuilTheme.accentGradient, lineWidth: 1.5))
                 .foregroundStyle(SeuilTheme.accent)
             heading("Prêt à t’engager à fond ?")
-            paragraph("Avec le Hard Mode, impossible de débloquer temporairement une app, d’annuler ou de contourner tes règles. Le désactiver prend 24 heures.")
+            paragraph("Avec le Hard Mode, impossible de débloquer temporairement une app, d’annuler ou de contourner tes règles. Le désactiver prend 24 heures. Tu pourras l’activer plus tard dans les réglages.")
             PhoneMock {
                 VStack(spacing: 18) {
                     HStack(spacing: 10) {
@@ -138,7 +137,7 @@ struct OnboardingView: View {
                         Image(systemName: "arrow.right").opacity(0.5)
                         Image(systemName: "shield.fill").font(.title).foregroundStyle(SeuilTheme.accentGradient)
                     }
-                    Toggle("Hard Mode", isOn: $hardMode).tint(SeuilTheme.accent).padding(.horizontal, 20)
+                    Text("Disponible avec Seuil Pro").font(.subheadline).foregroundStyle(SeuilTheme.accent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(white: 0.08))
@@ -313,7 +312,6 @@ struct OnboardingView: View {
             guard !selection.applicationTokens.isEmpty else { return }
             access.protect(selection)
             applyProposals(apps: selection.applicationTokens)
-            if hardMode { access.setHardMode(true) }
             go(to: .done)
         }
     }

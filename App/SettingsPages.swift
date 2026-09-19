@@ -88,6 +88,8 @@ struct NotificationSettingsView: View {
 
 struct ShieldDesignView: View {
     @ObservedObject var access: AccessController
+    @EnvironmentObject private var store: ProStore
+    @Environment(\.requestPro) private var requestPro
     @State private var preview = ShieldPack.standard.messages[0]
     @State private var previewPack = ShieldPack.standard
 
@@ -104,9 +106,12 @@ struct ShieldDesignView: View {
             }
             SettingsCard(title: "Messages") {
                 ForEach(ShieldPack.allCases, id: \.self) { pack in
-                    SettingsToggleRow(emoji: pack.emoji, title: pack.title, subtitle: pack.summary,
+                    let locked = !store.isPro && !FreePlan.allows(pack)
+                    SettingsToggleRow(emoji: pack.emoji, title: pack.title + (locked ? "  🔒" : ""), subtitle: pack.summary,
                                       isOn: Binding(get: { access.state.preferences.shieldPacks.contains(pack) },
-                                                    set: { on in toggle(pack, on: on) }))
+                                                    set: { on in
+                                                        if locked { requestPro() } else { toggle(pack, on: on) }
+                                                    }))
                     if pack != ShieldPack.allCases.last { RowDivider() }
                 }
             }

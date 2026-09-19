@@ -9,6 +9,12 @@ enum Shielding {
     /// Single source of truth for what is blocked right now: apps past their daily
     /// allowance, active routines and focus, minus the one app unlocked by a session.
     static func apply(_ state: SharedState, now: Date = Date()) {
+        if state.isEmergencyActive(now: now) {
+            // Emergency pass: every rule is lifted for the hour.
+            AppConfiguration.store.shield.applications = nil
+            AppConfiguration.store.shield.applicationCategories = nil
+            return
+        }
         var applications = Set(state.rules.filter { $0.isBlocked(now: now) }.map(\.token))
         applications.formUnion(state.neverAllowed)
         var categories = Set<ActivityCategoryToken>()
@@ -124,6 +130,7 @@ enum RoutineMonitoring {
 
 enum FocusMonitoring {
     static let prefix = "focus."
+    static let emergencyPrefix = "emergency."
     static let options = [25, 50, 90]
     /// From a quick pause to a full day of digital detox.
     static let range = 5...(24 * 60)

@@ -12,13 +12,15 @@ extension AccessController {
 
 struct SettingsView: View {
     @ObservedObject var access: AccessController
+    @ObservedObject var store: ProStore
+    @Environment(\.requestPro) private var requestPro
     @Environment(\.dismiss) private var dismiss
     @AppStorage("profile.name") private var name = ""
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                hardModeCard
+                proCard
                 SettingsCard(title: "Compte") {
                     NavigationLink { AccountView() } label: {
                         SettingsRowLabel(icon: "person.fill", title: "Mon compte", subtitle: name.isEmpty ? nil : name)
@@ -53,12 +55,16 @@ struct SettingsView: View {
                 }
                 SettingsCard(title: "Assistance") {
                     Link(destination: URL(string: "mailto:adri1.pouch@gmail.com?subject=Seuil")!) {
-                        SettingsRowLabel(icon: "bubble.left.and.bubble.right.fill", title: "Contacter l’assistance", trailing: "arrow.up.right")
+                        SettingsRowLabel(icon: "envelope.fill", title: "Écrire par e-mail", trailing: "arrow.up.right")
+                    }
+                    RowDivider()
+                    NavigationLink { SupportChatView() } label: {
+                        SettingsRowLabel(icon: "bubble.left.and.bubble.right.fill", title: "Discuter avec l’assistance")
                     }
                     RowDivider()
                     NavigationLink { HelpView() } label: { SettingsRowLabel(icon: "book.fill", title: "Centre d’aide") }
                     RowDivider()
-                    NavigationLink { EmergencyPassView(access: access) } label: {
+                    NavigationLink { EmergencyTicketView(access: access) } label: {
                         SettingsRowLabel(icon: "ticket.fill", title: "Pass d’urgence",
                                          value: access.isEmergencyPassAvailable ? "Disponible" : "Utilisé")
                     }
@@ -85,8 +91,8 @@ struct SettingsView: View {
                         SettingsRowLabel(icon: "square.and.arrow.up", title: "Partager Seuil")
                     }
                     RowDivider()
-                    NavigationLink { RewardsView(access: access) } label: {
-                        SettingsRowLabel(icon: "gift.fill", title: "Récompenses", subtitle: "Des gemmes à débloquer avec ta série")
+                    NavigationLink { DoorsList(access: access) } label: {
+                        SettingsRowLabel(icon: "door.left.hand.open", title: "Mes portes", subtitle: "Les seuils que tu as franchis")
                     }
                 }
                 if !access.message.isEmpty {
@@ -113,33 +119,31 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
-    private var hardModeCard: some View {
+    private var proCard: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(access.isHardModeActive ? "Hard Mode activé" : "Passe au niveau supérieur").font(.title2.weight(.semibold))
-                Text("Pour les jours où la volonté ne suffit pas.").foregroundStyle(SeuilTheme.secondaryInk)
+                Text(store.isPro ? "Seuil Pro est actif" : "Tu es au plan gratuit").font(.title2.weight(.semibold))
+                Text(store.isPro ? "Merci. Toutes les fonctions sont débloquées."
+                                 : "Passe à Seuil Pro pour tenir vraiment tes engagements.")
+                    .foregroundStyle(SeuilTheme.secondaryInk)
             }
-            ForEach([("lock.shield.fill", "Mode strict", "Sans issue. Aucun déblocage, ni annulation, ni contournement."),
-                     ("arrow.triangle.branch", "Règles illimitées", "Autant de routines et de limites que tu veux."),
-                     ("checkmark.seal.fill", "Toujours autorisées", "Tes essentiels restent accessibles.")], id: \.1) { item in
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: item.0).font(.title2).foregroundStyle(SeuilTheme.accentGradient).frame(width: 32)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.1).font(.title3)
-                        Text(item.2).foregroundStyle(SeuilTheme.secondaryInk)
-                    }
+            ProFeatureList()
+            if store.isPro {
+                Toggle(isOn: Binding(get: { access.isHardModeActive }, set: { access.setHardMode($0) })) {
+                    Text("Hard Mode").font(.title3.weight(.semibold))
                 }
-            }
-            Toggle(isOn: Binding(get: { access.isHardModeActive }, set: { access.setHardMode($0) })) {
-                Text("Hard Mode").font(.title3.weight(.semibold))
-            }
-            .tint(Color(red: 0.86, green: 0.96, blue: 0.62))
-            .padding(.horizontal, 22).padding(.vertical, 14)
-            .background(Color.white.opacity(0.08), in: Capsule())
-            .accessibilityIdentifier("settings.hardMode")
-            if let offAt = access.state.preferences.hardModeOffAt, access.isHardModeActive {
-                Text("Désactivation le \(offAt.formatted(date: .abbreviated, time: .shortened)).")
-                    .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+                .tint(Color(red: 0.86, green: 0.96, blue: 0.62))
+                .padding(.horizontal, 22).padding(.vertical, 14)
+                .background(Color.white.opacity(0.08), in: Capsule())
+                .accessibilityIdentifier("settings.hardMode")
+                if let offAt = access.state.preferences.hardModeOffAt, access.isHardModeActive {
+                    Text("Désactivation le \(offAt.formatted(date: .abbreviated, time: .shortened)).")
+                        .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+                }
+            } else {
+                Button("Essayer Seuil Pro", action: requestPro)
+                    .buttonStyle(PillButtonStyle())
+                    .accessibilityIdentifier("settings.tryPro")
             }
         }
         .padding(22)

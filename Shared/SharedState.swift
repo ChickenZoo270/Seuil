@@ -138,6 +138,11 @@ struct Routine: Codable, Identifiable {
     }
 }
 
+struct EmergencyWindow: Codable {
+    let id: String
+    let endsAt: Date
+}
+
 /// "Block everything now" session started from the timer.
 struct FocusSession: Codable {
     let id: String
@@ -267,6 +272,13 @@ struct SharedState: Codable {
     /// Days (yyyy-mm-dd) where an unlock was earned or an allowance ran out; they break the streak.
     var dirtyDays: Set<String> = []
     var installedAt = Date()
+    /// Days the app was opened, days a focus session was completed, and totals for doors.
+    var openedDays: Set<String> = []
+    var focusDays: Set<String> = []
+    var focusSessionsCompleted = 0
+    var usedHardMode = false
+    /// Weekly emergency pass: every shield is lifted until this date.
+    var emergency: EmergencyWindow?
 
     var applications: Set<ApplicationToken> { Set(rules.map(\.token)) }
     var activeRoutines: [Routine] { routines.filter { $0.isEnabled && activeRoutineIDs.contains($0.id) } }
@@ -289,6 +301,23 @@ struct SharedState: Codable {
 
     mutating func markDirty(_ date: Date) { dirtyDays.insert(Streak.key(date)) }
 
+    func isEmergencyActive(now: Date) -> Bool { emergency.map { $0.endsAt > now } ?? false }
+
+    /// Records a focus session that ran to its end.
+    mutating func completeFocus(at date: Date) {
+        focus = nil
+        focusDays.insert(Streak.key(date))
+        focusSessionsCompleted += 1
+    }
+
+    func progressStats(now: Date) -> ProgressStats {
+        ProgressStats(openStreak: DayRun.current(openedDays, today: now),
+                      focusStreak: DayRun.current(focusDays, today: now),
+                      cleanStreak: streak(now: now),
+                      focusSessions: focusSessionsCompleted,
+                      usedHardMode: usedHardMode || preferences.hardMode)
+    }
+
     /// Consecutive clean days before today, since the app was installed.
     func streak(now: Date, calendar: Calendar = .current) -> Int {
         var clean = Set<String>()
@@ -307,6 +336,7 @@ struct SharedState: Codable {
     private enum CodingKeys: String, CodingKey {
         case rules, routines, activeRoutineIDs, focus, preferences, session, pendingApplication, sentAlerts, applications
         case allowedApplications, neverAllowed, dirtyDays, installedAt
+        case openedDays, focusDays, focusSessionsCompleted, usedHardMode, emergency
     }
 
     // Older versions stored fewer fields; version 1 stored a bare set of always-blocked apps.
@@ -323,6 +353,11 @@ struct SharedState: Codable {
         neverAllowed = try container.decodeIfPresent(Set<ApplicationToken>.self, forKey: .neverAllowed) ?? []
         dirtyDays = try container.decodeIfPresent(Set<String>.self, forKey: .dirtyDays) ?? []
         installedAt = try container.decodeIfPresent(Date.self, forKey: .installedAt) ?? Date()
+        openedDays = try container.decodeIfPresent(Set<String>.self, forKey: .openedDays) ?? []
+        focusDays = try container.decodeIfPresent(Set<String>.self, forKey: .focusDays) ?? []
+        focusSessionsCompleted = try container.decodeIfPresent(Int.self, forKey: .focusSessionsCompleted) ?? 0
+        usedHardMode = try container.decodeIfPresent(Bool.self, forKey: .usedHardMode) ?? false
+        emergency = try container.decodeIfPresent(EmergencyWindow.self, forKey: .emergency)
         if let rules = try container.decodeIfPresent([AppRule].self, forKey: .rules) {
             self.rules = rules
         } else {
@@ -345,6 +380,11 @@ struct SharedState: Codable {
         try container.encode(neverAllowed, forKey: .neverAllowed)
         try container.encode(dirtyDays, forKey: .dirtyDays)
         try container.encode(installedAt, forKey: .installedAt)
+        try container.encode(openedDays, forKey: .openedDays)
+        try container.encode(focusDays, forKey: .focusDays)
+        try container.encode(focusSessionsCompleted, forKey: .focusSessionsCompleted)
+        try container.encode(usedHardMode, forKey: .usedHardMode)
+        try container.encodeIfPresent(emergency, forKey: .emergency)
     }
 
     static func alertKey(ruleID: String, minutes: Int, now: Date, calendar: Calendar = .current) -> String {

@@ -159,7 +159,7 @@ public enum ShieldPack: String, Codable, CaseIterable, Sendable {
 /// One emergency unlock a week, even through strict rules.
 public enum EmergencyPass {
     public static let cooldown: TimeInterval = 7 * 86_400
-    public static let minutes = 15
+    public static let minutes = 60
 
     public static func isAvailable(lastUsed: Date?, now: Date) -> Bool {
         guard let lastUsed else { return true }

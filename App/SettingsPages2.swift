@@ -41,6 +41,8 @@ enum AppListKind: CaseIterable {
 
 struct AppListView: View {
     @ObservedObject var access: AccessController
+    @EnvironmentObject private var store: ProStore
+    @Environment(\.requestPro) private var requestPro
     let kind: AppListKind
     @State private var showPicker = false
     @State private var selection = FamilyActivitySelection()
@@ -79,6 +81,7 @@ struct AppListView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 CircleIconButton(symbol: "plus", size: 44) {
+                    guard store.isPro || kind != .never else { requestPro(); return }
                     selection = FamilyActivitySelection()
                     selection.applicationTokens = kind.tokens(in: access.state)
                     showPicker = true
@@ -188,93 +191,6 @@ struct HelpView: View {
                 .tint(.white)
                 .glassCard(cornerRadius: 24, padding: 18)
             }
-        }
-    }
-}
-
-struct EmergencyPassView: View {
-    @ObservedObject var access: AccessController
-
-    var body: some View {
-        PageScaffold(title: "Pass d’urgence") {
-            VStack(spacing: 16) {
-                Image(systemName: "ticket.fill").font(.system(size: 70)).foregroundStyle(SeuilTheme.accentGradient)
-                Text(access.isEmergencyPassAvailable ? "Disponible" : "Déjà utilisé cette semaine")
-                    .font(.title2.weight(.semibold))
-                Text("Une fois par semaine, débloque une app \(EmergencyPass.minutes) minutes sans défi, même en mode strict ou en Hard Mode. À garder pour les vraies urgences.")
-                    .multilineTextAlignment(.center).foregroundStyle(SeuilTheme.secondaryInk)
-                if let next = EmergencyPass.nextAvailable(lastUsed: access.state.preferences.emergencyPassUsedAt), !access.isEmergencyPassAvailable {
-                    Text("De nouveau disponible le \(next.formatted(date: .abbreviated, time: .shortened)).")
-                        .font(.footnote).foregroundStyle(SeuilTheme.accent)
-                }
-                Text("Pour l’utiliser, ouvre une app bloquée puis choisis « Pass d’urgence » dans la salle d’attente.")
-                    .font(.footnote).multilineTextAlignment(.center).foregroundStyle(SeuilTheme.secondaryInk)
-            }
-            .glassCard(cornerRadius: 34, padding: 26)
-        }
-    }
-}
-
-/// Gems unlocked by the streak: Seuil's milestones, earned on this iPhone.
-struct RewardsView: View {
-    @ObservedObject var access: AccessController
-
-    private let milestones: [(days: Int, name: String, hue: Double)] = [
-        (1, "Gemme d’éveil", 0.45), (3, "Gemme loyale", 0.6), (7, "Gemme inspirée", 0.8),
-        (14, "Gemme sereine", 0.15), (30, "Gemme lumineuse", 0.95), (100, "Gemme légendaire", 0.33),
-    ]
-
-    var body: some View {
-        let streak = access.state.streak(now: Date())
-        PageScaffold(title: "Récompenses") {
-            VStack(spacing: 8) {
-                Text("Série actuelle").foregroundStyle(SeuilTheme.secondaryInk)
-                Text("\(streak) jour\(streak > 1 ? "s" : "")").font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundStyle(SeuilTheme.accentGradient)
-            }
-            .frame(maxWidth: .infinity)
-            ForEach(Array(milestones.enumerated()), id: \.offset) { index, milestone in
-                let unlocked = streak >= milestone.days
-                HStack(spacing: 18) {
-                    Gem(hue: milestone.hue, unlocked: unlocked).frame(width: 110, height: 110)
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("\(milestone.days) JOUR\(milestone.days > 1 ? "S" : "")").font(.caption.weight(.bold)).foregroundStyle(SeuilTheme.accent)
-                        Text(milestone.name).font(.title3.weight(.semibold))
-                        Text(unlocked ? "Débloquée" : "Encore \(milestone.days - streak) jour\(milestone.days - streak > 1 ? "s" : "")")
-                            .foregroundStyle(SeuilTheme.secondaryInk)
-                        ProgressView(value: min(Double(streak), Double(milestone.days)), total: Double(milestone.days))
-                            .tint(SeuilTheme.accent)
-                    }
-                }
-                .glassCard(cornerRadius: 30, padding: 14)
-                if index < milestones.count - 1 {
-                    Image(systemName: "arrow.down").foregroundStyle(SeuilTheme.secondaryInk).frame(maxWidth: .infinity)
-                }
-            }
-        }
-    }
-}
-
-/// Faceted gem drawn in code; greyed out until earned.
-struct Gem: View {
-    let hue: Double
-    let unlocked: Bool
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 22).fill(Color.white.opacity(0.05))
-            Ellipse()
-                .fill(AngularGradient(colors: [Color(hue: hue, saturation: 0.8, brightness: 0.9),
-                                               Color(hue: (hue + 0.2).truncatingRemainder(dividingBy: 1), saturation: 0.7, brightness: 1),
-                                               Color(hue: (hue + 0.45).truncatingRemainder(dividingBy: 1), saturation: 0.8, brightness: 0.8),
-                                               Color(hue: hue, saturation: 0.8, brightness: 0.9)],
-                                      center: .center))
-                .frame(width: 58, height: 76)
-                .overlay(Ellipse().fill(LinearGradient(colors: [.white.opacity(0.8), .clear], startPoint: .topLeading, endPoint: .center)).frame(width: 58, height: 76))
-                .shadow(color: Color(hue: hue, saturation: 0.8, brightness: 1).opacity(0.6), radius: 14)
-                .saturation(unlocked ? 1 : 0)
-                .opacity(unlocked ? 1 : 0.35)
-            if !unlocked { Image(systemName: "lock.fill").foregroundStyle(.white.opacity(0.8)) }
         }
     }
 }

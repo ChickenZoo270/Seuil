@@ -1,6 +1,7 @@
 import Foundation
 import FamilyControls
 import ManagedSettings
+import DeviceActivity
 import IntentionCore
 
 extension AccessController {
@@ -54,6 +55,36 @@ extension AccessController {
             current.preferences.hardMode = false
             current.preferences.hardModeOffAt = nil
         }
+    }
+
+    /// Lifts every shield for an hour, once a week, whatever the rules or Hard Mode.
+    func useEmergencyPass() {
+        let now = Date()
+        guard EmergencyPass.isAvailable(lastUsed: state.preferences.emergencyPassUsedAt, now: now) else {
+            message = AppError.emergencyUsed.localizedDescription
+            return
+        }
+        let start = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970))
+        let end = start.addingTimeInterval(TimeInterval(EmergencyPass.minutes * 60))
+        let id = FocusMonitoring.emergencyPrefix + UUID().uuidString
+        let components: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+        do {
+            // Registered before lifting anything, so the shields always come back.
+            try center.startMonitoring(.init(id), during: DeviceActivitySchedule(
+                intervalStart: Calendar.current.dateComponents(components, from: start),
+                intervalEnd: Calendar.current.dateComponents(components, from: end), repeats: false))
+        } catch {
+            message = error.localizedDescription
+            return
+        }
+        mutate { current in
+            current.emergency = EmergencyWindow(id: id, endsAt: end)
+            current.preferences.emergencyPassUsedAt = now
+            current.pendingApplication = nil
+        }
+        NotificationScheduler.once(id: "emergency.end", after: TimeInterval(EmergencyPass.minutes * 60),
+                                   title: "Pass d’urgence terminé", body: "Tes règles s’appliquent de nouveau.")
+        message = "Pass d’urgence activé : toutes tes apps sont disponibles pendant 1 heure."
     }
 
     var isEmergencyPassAvailable: Bool {

@@ -236,6 +236,8 @@ struct SevenSegmentDigit: View {
 /// Confirms a timer session: which apps, how long, strict or not, then hold to commit.
 struct CommitSheet: View {
     @ObservedObject var access: AccessController
+    @EnvironmentObject private var store: ProStore
+    @Environment(\.requestPro) private var requestPro
     let preset: TimerPreset
     @State private var minutes: Int
     @State private var strict = false
@@ -271,11 +273,19 @@ struct CommitSheet: View {
             }
             row {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Mode strict")
+                    HStack(spacing: 8) {
+                        Text("Mode strict")
+                        if !store.isPro { ProBadge() }
+                    }
                     Text("Aucun déblocage autorisé").font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
                 }
                 Spacer()
-                Toggle("Mode strict", isOn: access.isHardModeActive ? .constant(true) : $strict)
+                Toggle("Mode strict", isOn: Binding(
+                    get: { access.isHardModeActive || strict },
+                    set: { value in
+                        guard store.isPro else { requestPro(); return }
+                        strict = value
+                    }))
                     .labelsHidden().tint(SeuilTheme.accent)
                     .disabled(access.isHardModeActive)
             }

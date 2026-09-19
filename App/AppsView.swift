@@ -5,6 +5,8 @@ import IntentionCore
 
 struct AppsView: View {
     @ObservedObject var access: AccessController
+    @EnvironmentObject private var store: ProStore
+    @Environment(\.requestPro) private var requestPro
     let onUnlock: (ApplicationToken) -> Void
     @State private var showNewRule = false
     @State private var editing: Routine?
@@ -23,7 +25,7 @@ struct AppsView: View {
                 HStack {
                     Text("Apps").font(.system(size: 40, weight: .bold))
                     Spacer()
-                    CircleIconButton(symbol: "plus", size: 58, prominent: true) { showNewRule = true }
+                    CircleIconButton(symbol: "plus", size: 58, prominent: true) { addRule() }
                         .accessibilityIdentifier("apps.newRule")
                         .accessibilityLabel("Nouvelle règle")
                 }
@@ -119,7 +121,7 @@ struct AppsView: View {
                                  title: "Limites de temps", subtitle: "Par app, chaque jour") { EmptyView() }
                     }
                     .buttonStyle(.plain)
-                    Button { showNewRule = true } label: {
+                    Button { addRule() } label: {
                         VStack(spacing: 10) {
                             Image(systemName: "plus").font(.largeTitle)
                             Text("Nouvelle règle").font(.headline)
@@ -141,7 +143,7 @@ struct AppsView: View {
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 16) {
                     groupTile(.allowed, title: "Toujours autorisées", tokens: access.state.allowedApplications, emptySymbol: "checkmark.shield")
-                    groupTile(.never, title: "Jamais autorisées", tokens: access.state.neverAllowed, emptySymbol: "eye.slash")
+                    groupTile(.never, title: "Jamais autorisées", tokens: access.state.neverAllowed, emptySymbol: "eye.slash", pro: true)
                     groupTile(.distracting, title: "Distrayantes", tokens: access.state.applications, emptySymbol: "sparkles")
                 }
             }
@@ -149,8 +151,9 @@ struct AppsView: View {
         }
     }
 
-    private func groupTile(_ list: AppList, title: String, tokens: Set<ApplicationToken>, emptySymbol: String) -> some View {
+    private func groupTile(_ list: AppList, title: String, tokens: Set<ApplicationToken>, emptySymbol: String, pro: Bool = false) -> some View {
         Button {
+            guard store.isPro || !pro else { requestPro(); return }
             selection = FamilyActivitySelection()
             selection.applicationTokens = tokens
             picking = list
@@ -173,12 +176,24 @@ struct AppsView: View {
                 }
                 .frame(width: 150, height: 150)
                 .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 34))
-                Text(title).font(.headline).multilineTextAlignment(.center)
+                HStack(spacing: 6) {
+                    Text(title).font(.headline).multilineTextAlignment(.center)
+                    if pro, !store.isPro { ProBadge() }
+                }
                 Text("\(tokens.count) élément\(tokens.count > 1 ? "s" : "")").font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
             }
             .frame(width: 160)
         }
         .buttonStyle(.plain)
+    }
+
+    /// The free plan allows two rules; more of them is a Pro feature.
+    private func addRule() {
+        if store.isPro || FreePlan.allowsRule(count: access.state.routines.count) {
+            showNewRule = true
+        } else {
+            requestPro()
+        }
     }
 
     private func commitPicking() {

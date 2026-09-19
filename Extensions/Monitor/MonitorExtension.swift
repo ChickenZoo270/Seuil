@@ -76,7 +76,8 @@ final class MonitorExtension: DeviceActivityMonitor {
         update("Session end") { state in
             // Late callbacks from previous sessions must never close a new one.
             if state.session?.id == activity.rawValue { state.session = nil; matched = true }
-            if state.focus?.id == activity.rawValue { state.focus = nil; matched = true }
+            if state.focus?.id == activity.rawValue { state.completeFocus(at: Date()); matched = true }
+            if state.emergency?.id == activity.rawValue { state.emergency = nil; matched = true }
         }
         if matched { DeviceActivityCenter().stopMonitoring([activity]) }
     }

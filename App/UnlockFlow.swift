@@ -27,7 +27,7 @@ struct UnlockFlow: View {
                 Label("Mode strict : aucun déblocage avant la fin.", systemImage: "lock.fill").font(.headline)
                 if let onEmergency, EmergencyPass.isAvailable(lastUsed: state.preferences.emergencyPassUsedAt, now: now) {
                     Button(action: onEmergency) {
-                        Label("Utiliser mon pass d’urgence (\(EmergencyPass.minutes) min)", systemImage: "ticket.fill")
+                        Label("Pass d’urgence : tout débloquer 1 h", systemImage: "ticket.fill")
                     }
                     .buttonStyle(PillButtonStyle())
                     Text("Une fois par semaine. À garder pour les vraies urgences.")

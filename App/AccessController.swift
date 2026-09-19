@@ -46,7 +46,20 @@ final class AccessController: ObservableObject {
                 }
                 if let focus = current.focus, focus.endsAt <= now {
                     finished.append(focus.id)
-                    current.focus = nil
+                    current.completeFocus(at: focus.endsAt)
+                }
+                if let emergency = current.emergency, emergency.endsAt <= now {
+                    finished.append(emergency.id)
+                    current.emergency = nil
+                }
+                let today = Streak.key(now)
+                if !current.openedDays.contains(today) {
+                    current.openedDays.insert(today)
+                    finished.append("")
+                }
+                if current.preferences.hardMode, !current.usedHardMode {
+                    current.usedHardMode = true
+                    finished.append("")
                 }
                 let previousRoutines = current.activeRoutineIDs
                 Shielding.reconcileRoutines(&current, at: now)
@@ -57,7 +70,8 @@ final class AccessController: ObservableObject {
                 if !finished.isEmpty || previousRoutines != current.activeRoutineIDs { try save(current) }
                 return current
             }
-            if !finished.isEmpty { center.stopMonitoring(finished.map { .init($0) }) }
+            let stopped = finished.filter { !$0.isEmpty }
+            if !stopped.isEmpty { center.stopMonitoring(stopped.map { .init($0) }) }
             if authorized, !state.rules.isEmpty, !center.activities.contains(DailyMonitoring.activity) {
                 try DailyMonitoring.restart(for: state, center: center)
             }
