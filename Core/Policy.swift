@@ -17,23 +17,28 @@ public enum Decision: Equatable, Sendable {
     case allow(minutes: Int)
     case clarify
     case deny
-    case budgetExhausted
+    case invalidDuration
     case sessionAlreadyActive
 }
 
 public enum Policy {
-    public static let sessionMinutes = 15
-    public static let budgetMinutes = 45
+    /// Durations the user may request once a valid reason is given.
+    public static let unlockOptions = [5, 15, 30]
+    public static let defaultUnlockMinutes = 15
+    /// Daily allowance choices per app. 0 means the app always asks for a reason.
+    public static let dailyLimitOptions = [0, 5, 10, 15, 30, 45, 60, 90, 120]
+    public static let defaultDailyLimitMinutes = 30
     public static let maxCharacters = 600
+    static let minimumWords = 4
 
-    // The classifier never controls the duration or the available budget.
-    public static func decide(_ assessment: Assessment, usedMinutes: Int, hasSession: Bool) -> Decision {
+    // The classifier never controls the duration: it only comes from the fixed options.
+    public static func decide(_ assessment: Assessment, requestedMinutes: Int, hasSession: Bool) -> Decision {
         if hasSession { return .sessionAlreadyActive }
-        if usedMinutes < 0 || usedMinutes + sessionMinutes > budgetMinutes { return .budgetExhausted }
+        guard unlockOptions.contains(requestedMinutes) else { return .invalidDuration }
         if assessment.kind == .scrolling { return .deny }
         guard assessment.specific else { return .clarify }
         switch assessment.kind {
-        case .learning, .communication: return .allow(minutes: sessionMinutes)
+        case .learning, .communication: return .allow(minutes: requestedMinutes)
         case .unclear: return .clarify
         case .scrolling: return .deny
         }
@@ -44,44 +49,56 @@ public enum Policy {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    // Conservative offline grammar. Unknown or negated phrases require clarification.
-    // This intentionally does not claim to understand arbitrary natural language.
+    private static let scrollingMarkers = [
+        "scroll", "m'ennuie", "m’ennuie", "je m ennuie", "passer le temps", "voir ce qu", "pour toi", "for you",
+        "juste regarder", "reels", "fil d'actu", "fil d’actu", "rien de special", "tuer le temps",
+    ]
+    private static let communicationVerbs = [
+        "repondre", "envoyer", "ecrire", "appeler", "contacter", "prevenir", "demander", "souhaiter",
+        "publier", "poster", "partager", "confirmer", "organiser", "inviter", "remercier", "feliciter",
+    ]
+    private static let learningVerbs = [
+        "apprendre", "comprendre", "chercher", "rechercher", "trouver", "verifier", "consulter",
+        "lire", "regarder comment", "suivre le tuto", "suivre un tuto", "reviser", "etudier",
+    ]
+
+    // Conservative offline grammar: an action verb plus enough words to name the topic
+    // or recipient. Unknown, negated or boredom-driven phrases never unlock.
     public static func localAssessment(_ input: String) -> Assessment {
         let text = normalized(input)
         guard text.count >= 12, text.count <= maxCharacters else {
             return Assessment(kind: .unclear, specific: false)
         }
-        if ["scroll", "m'ennuie", "m’ennuie", "passer le temps", "voir ce qu", "pour toi", "for you"].contains(where: text.contains) {
+        if scrollingMarkers.contains(where: text.contains) {
             return Assessment(kind: .scrolling, specific: false)
         }
         let tokens = text.split(whereSeparator: { !$0.isLetter }).map(String.init)
-        if tokens.contains("pas") || tokens.contains("sans") || text.contains("ignore") {
+        if tokens.contains("pas") || tokens.contains("sans") || tokens.contains("rien") || text.contains("ignore") {
             return Assessment(kind: .unclear, specific: false)
         }
-        let learningPrefixes = ["je veux apprendre a ", "je veux comprendre comment ", "je veux chercher comment "]
-        for prefix in learningPrefixes where text.hasPrefix(prefix) {
-            let topic = text.dropFirst(prefix.count)
-            if topic.split(separator: " ").count >= 3 {
-                return Assessment(kind: .learning, specific: true)
-            }
+        let specific = tokens.count >= minimumWords
+        if communicationVerbs.contains(where: { tokens.contains($0) }) {
+            return Assessment(kind: .communication, specific: specific)
+        }
+        if learningVerbs.contains(where: { $0.contains(" ") ? text.contains($0) : tokens.contains($0) }) {
+            return Assessment(kind: .learning, specific: specific)
         }
         return Assessment(kind: .unclear, specific: false)
     }
 }
 
-public struct Receipt: Codable, Equatable, Sendable {
-    public var startedAt: Date
-    public var minutes: Int
-    public init(startedAt: Date, minutes: Int) {
-        self.startedAt = startedAt
-        self.minutes = minutes
+public enum DailyLimit {
+    /// A limit reached on a previous day no longer blocks the app, even if the
+    /// midnight callback was missed.
+    public static func isReached(reachedAt: Date?, now: Date, calendar: Calendar = .current) -> Bool {
+        guard let reachedAt, reachedAt <= now else { return false }
+        return calendar.isDate(reachedAt, inSameDayAs: now)
     }
-}
 
-public enum Budget {
-    // Rolling window avoids a midnight reset allowing back-to-back daily budgets.
-    public static func used(_ receipts: [Receipt], now: Date) -> Int {
-        receipts.filter { $0.startedAt > now.addingTimeInterval(-86_400) }
-            .reduce(0) { $0 + max(0, $1.minutes) }
+    public static func label(_ minutes: Int) -> String {
+        if minutes == 0 { return "Toujours demander" }
+        if minutes < 60 { return "\(minutes) min / jour" }
+        let hours = minutes / 60, rest = minutes % 60
+        return rest == 0 ? "\(hours) h / jour" : "\(hours) h \(rest) / jour"
     }
 }

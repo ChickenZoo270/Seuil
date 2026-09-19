@@ -64,7 +64,9 @@ targets:
           - UIInterfaceOrientationPortrait
   ShieldConfiguration:
     templates: [Extension]
-    sources: [Extensions/ShieldConfiguration]
+    sources: [Extensions/ShieldConfiguration, Shared]
+    dependencies:
+      - package: IntentionCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.chickenzoo.seuil.shieldconfiguration

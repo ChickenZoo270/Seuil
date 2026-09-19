@@ -37,7 +37,11 @@ enum IntentClassifier {
             let response = try await session.respond(to: input, generating: ModelAssessment.self)
             try Task.checkCancellation()
             let kind = IntentKind(rawValue: response.content.category) ?? .unclear
-            return Classification(assessment: Assessment(kind: kind, specific: response.content.specific), source: "IA Apple sur cet iPhone + règles locales")
+            let model = Assessment(kind: kind, specific: response.content.specific)
+            // A clear local match stands unless the model detects aimless scrolling.
+            let localAllows = local.specific && (local.kind == .learning || local.kind == .communication)
+            let assessment = localAllows && model.kind != .scrolling ? local : model
+            return Classification(assessment: assessment, source: "IA Apple sur cet iPhone + règles locales")
         } catch is CancellationError {
             throw CancellationError()
         } catch {

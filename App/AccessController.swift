@@ -16,6 +16,7 @@ final class AccessController: ObservableObject {
         do {
             try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
             refresh()
+            try DailyMonitoring.restart(for: state.rules, center: center)
         } catch { message = error.localizedDescription }
     }
 
@@ -27,9 +28,6 @@ final class AccessController: ObservableObject {
                 if let session = current.session,
                    !session.isArmed || session.expiresAt <= Date() || !center.activities.contains(.init(session.id)) {
                     expired = session.id
-                    if !session.isArmed {
-                        current.receipts.removeAll { $0.startedAt == session.startedAt }
-                    }
                     // Reblock before persisting so write failure cannot leave access open.
                     current.session = nil
                     SharedStorage.applyShield(current)
@@ -40,52 +38,79 @@ final class AccessController: ObservableObject {
                 return current
             }
             if let expired { center.stopMonitoring([.init(expired)]) }
+            if authorized, state.rules.contains(where: { $0.dailyMinutes > 0 }),
+               !center.activities.contains(DailyMonitoring.activity) {
+                try DailyMonitoring.restart(for: state.rules, center: center)
+            }
         } catch { message = "Impossible de charger la protection : \(error.localizedDescription)" }
     }
 
+    /// Keeps each existing app's allowance; newly picked apps start with the default.
     func protect(_ selection: FamilyActivitySelection) {
         do {
             guard AuthorizationCenter.shared.authorizationStatus == .approved else { throw AppError.unauthorized }
             guard selection.categoryTokens.isEmpty, selection.webDomainTokens.isEmpty else { throw AppError.unsupportedSelection }
             try SharedStorage.locked { current, save in
                 guard current.session == nil else { throw AppError.activeSession }
-                current.applications = selection.applicationTokens
+                let picked = selection.applicationTokens
+                let kept = current.rules.filter { picked.contains($0.token) }
+                let added = picked.subtracting(kept.map(\.token))
+                    .map { AppRule(token: $0, dailyMinutes: Policy.defaultDailyLimitMinutes) }
+                current.rules = kept + added
                 current.pendingApplication = nil
-                try save(current)
                 SharedStorage.applyShield(current)
+                try save(current)
+                try DailyMonitoring.restart(for: current.rules, center: center)
             }
             message = "Protection mise à jour."
             refresh()
         } catch { message = error.localizedDescription }
     }
 
-    func grant(application: ApplicationToken, assessment: Assessment) throws {
+    func setDailyLimit(_ minutes: Int, for token: ApplicationToken) {
+        guard Policy.dailyLimitOptions.contains(minutes) else { return }
+        do {
+            try SharedStorage.locked { current, save in
+                guard let index = current.rules.firstIndex(where: { $0.token == token }) else { throw AppError.unavailableApplication }
+                current.rules[index].dailyMinutes = minutes
+                // Re-evaluated from today's real usage when monitoring restarts.
+                current.rules[index].limitReachedAt = nil
+                SharedStorage.applyShield(current)
+                try save(current)
+                try DailyMonitoring.restart(for: current.rules, center: center)
+            }
+            refresh()
+        } catch { message = error.localizedDescription }
+    }
+
+    func grant(application: ApplicationToken, assessment: Assessment, minutes requested: Int) throws {
         guard AuthorizationCenter.shared.authorizationStatus == .approved else { throw AppError.unauthorized }
         try Task.checkCancellation()
         let now = Date()
         var monitorToCancel: String?
         defer { if let monitorToCancel { center.stopMonitoring([.init(monitorToCancel)]) } }
+        var granted = 0
         try SharedStorage.locked { current, save in
             guard current.applications.contains(application) else { throw AppError.unavailableApplication }
             guard current.session == nil else { throw AppError.activeSession }
-            let decision = Policy.decide(assessment, usedMinutes: Budget.used(current.receipts, now: now), hasSession: false)
-            guard case .allow(let minutes) = decision else {
-                if decision == .budgetExhausted { throw AppError.budget }
+            guard case .allow(let minutes) = Policy.decide(assessment, requestedMinutes: requested, hasSession: false) else {
                 throw AppError.invalidDecision
             }
+            granted = minutes
             let previous = current
-            // Whole seconds ensure a schedule of exactly 900 seconds (Apple minimum).
             let start = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970))
             let end = start.addingTimeInterval(TimeInterval(minutes * 60))
             let id = "intention.\(UUID().uuidString)"
-            let calendar = Calendar.current
             let components: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+            // DeviceActivity rejects intervals shorter than 15 minutes: shorter sessions pad
+            // the schedule and reblock from the end warning, which fires exactly at `end`.
+            let minimumMinutes = 15
+            let scheduleEnd = max(end, start.addingTimeInterval(TimeInterval(minimumMinutes * 60)))
             let schedule = DeviceActivitySchedule(
-                intervalStart: calendar.dateComponents(components, from: start),
-                intervalEnd: calendar.dateComponents(components, from: end), repeats: false)
+                intervalStart: Calendar.current.dateComponents(components, from: start),
+                intervalEnd: Calendar.current.dateComponents(components, from: scheduleEnd), repeats: false,
+                warningTime: minutes < minimumMinutes ? DateComponents(minute: minimumMinutes - minutes) : nil)
             current.session = AccessSession(id: id, application: application, startedAt: now, expiresAt: end, isArmed: false)
-            current.receipts.removeAll { $0.startedAt <= now.addingTimeInterval(-86_400) }
-            current.receipts.append(Receipt(startedAt: now, minutes: minutes))
             current.pendingApplication = nil
             // Persist -> register reblocking -> unlock. Never unlock on registration failure.
             try save(current)
@@ -103,7 +128,15 @@ final class AccessController: ObservableObject {
             SharedStorage.applyShield(current)
             monitorToCancel = nil
         }
-        message = "15 minutes accordées. Tu peux retourner dans l’app choisie."
+        message = "\(granted) minutes accordées. Retourne dans l’app choisie."
+        refresh()
+    }
+
+    func dismissPending() {
+        try? SharedStorage.locked { current, save in
+            current.pendingApplication = nil
+            try save(current)
+        }
         refresh()
     }
 
@@ -117,9 +150,8 @@ final class AccessController: ObservableObject {
                 SharedStorage.applyShield(current)
                 try save(current)
             }
-            // Stop before refresh, even when persistence failed (see defer above).
             if let id = monitorToStop { center.stopMonitoring([.init(id)]); monitorToStop = nil }
-            message = "Session terminée. Les apps sont à nouveau bloquées."
+            message = "Session terminée. L’app est à nouveau protégée."
             refresh()
         } catch { message = error.localizedDescription }
     }
