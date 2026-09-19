@@ -30,15 +30,15 @@ jobs:
           xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" SimulatorBuild/Build/Products/Debug-iphonesimulator/Intention.app
-          xcrun simctl launch "$DEVICE_ID" com.example.intention | tee simulator-evidence/launch.log
-          APP_PID=$(awk '/com.example.intention:/ {print $NF}' simulator-evidence/launch.log)
+          xcrun simctl launch "$DEVICE_ID" com.chickenzoo.seuil | tee simulator-evidence/launch.log
+          APP_PID=$(awk '/com.chickenzoo.seuil:/ {print $NF}' simulator-evidence/launch.log)
           test -n "$APP_PID"
           sleep 8
           kill -0 "$APP_PID"
           xcrun simctl io "$DEVICE_ID" screenshot simulator-evidence/launch.png
-          xcrun simctl terminate "$DEVICE_ID" com.example.intention
-          xcrun simctl launch "$DEVICE_ID" com.example.intention | tee simulator-evidence/relaunch.log
-          APP_PID=$(awk '/com.example.intention:/ {print $NF}' simulator-evidence/relaunch.log)
+          xcrun simctl terminate "$DEVICE_ID" com.chickenzoo.seuil
+          xcrun simctl launch "$DEVICE_ID" com.chickenzoo.seuil | tee simulator-evidence/relaunch.log
+          APP_PID=$(awk '/com.chickenzoo.seuil:/ {print $NF}' simulator-evidence/relaunch.log)
           test -n "$APP_PID"
           sleep 5
           kill -0 "$APP_PID"
