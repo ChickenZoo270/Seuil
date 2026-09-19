@@ -1,4 +1,5 @@
 import SwiftUI
+import IntentionCore
 import StoreKit
 
 /// Full-screen subscription sheet. Drives `ProStore` for plans, purchase and restore.
