@@ -90,6 +90,7 @@ final class ScreenshotTour: XCTestCase {
         shoot(app, "home")
 
         openProfileMenu(app)
+        _ = app.otherElements["home.profileMenu"].waitForExistence(timeout: timeout)
         shoot(app, "profile-menu")
         closeProfileMenu(app)
 
@@ -102,6 +103,7 @@ final class ScreenshotTour: XCTestCase {
         let tab = app.buttons["Mes Apps"]
         guard tab.waitForExistence(timeout: timeout) else { skipped.append("apps-tab"); return }
         tab.tap()
+        _ = app.buttons["apps.newRule"].waitForExistence(timeout: timeout)
         shoot(app, "apps-tab")
 
         let newRule = app.buttons["apps.newRule"]
@@ -189,6 +191,8 @@ final class ScreenshotTour: XCTestCase {
 
     /// Saves a PNG to SCREENSHOT_DIR, falling back to an always-kept XCTAttachment.
     private func shoot(_ app: XCUIApplication, _ name: String) {
+        // Let animations and async loads settle so no frame is caught half drawn.
+        Thread.sleep(forTimeInterval: 0.8)
         counter += 1
         let fileName = String(format: "%02d-%@.png", counter, name)
         let data = XCUIScreen.main.screenshot().pngRepresentation

@@ -77,15 +77,16 @@ struct RootView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             GlowBackground()
-            Group {
-                switch tab {
-                case .home: HomeView(access: access, onUnlock: { unlocking = $0 }, onShowApps: { tab = .apps },
-                                     onFocus: { tab = .timer }, onRoute: { settingsRoute = $0 }, onDoors: { showDoors = true })
-                case .apps: AppsView(access: access, onUnlock: { unlocking = $0 })
-                case .timer: TimerView(access: access)
-                }
+            ZStack {
+                HomeView(access: access, onUnlock: { unlocking = $0 }, onShowApps: { tab = .apps },
+                         onFocus: { tab = .timer }, onRoute: { settingsRoute = $0 }, onDoors: { showDoors = true })
+                    .opacity(tab == .home ? 1 : 0)
+                AppsView(access: access, onUnlock: { unlocking = $0 })
+                    .opacity(tab == .apps ? 1 : 0)
+                TimerView(access: access)
+                    .opacity(tab == .timer ? 1 : 0)
             }
-            .transition(.opacity)
+            .animation(.easeInOut(duration: 0.2), value: tab)
             FloatingTabBar(selection: $tab)
                 .padding(.bottom, 6)
         }

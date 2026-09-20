@@ -214,6 +214,7 @@ struct HomeView: View {
                 .accessibilityIdentifier("menu.settings")
         }
         .frame(width: 300)
+        .accessibilityIdentifier("home.profileMenu")
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).strokeBorder(Color.white.opacity(0.12)))
         .shadow(color: .black.opacity(0.5), radius: 30, y: 10)

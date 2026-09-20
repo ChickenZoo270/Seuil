@@ -256,6 +256,8 @@ struct CommitSheet: View {
         VStack(spacing: 16) {
             HStack {
                 CircleIconButton(symbol: "xmark", size: 46) { dismiss() }
+                    .accessibilityIdentifier("sheet.close")
+                    .accessibilityLabel("Fermer")
                 Spacer()
                 Text(preset.name).font(.title2.weight(.semibold))
                 Spacer()

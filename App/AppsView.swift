@@ -323,7 +323,13 @@ struct NewRuleSheet: View {
             .background(Color.black)
             .navigationTitle("Nouvelle règle")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { Image(systemName: "xmark") } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .accessibilityIdentifier("sheet.close")
+                        .accessibilityLabel("Fermer")
+                }
+            }
         }
         .presentationBackground(.black)
     }
