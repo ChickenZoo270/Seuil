@@ -132,15 +132,15 @@ final class ScreenshotTour: XCTestCase {
         if home.waitForExistence(timeout: timeout) { home.tap() }
 
         openProfileMenu(app)
-        let settingsRow = app.buttons["menu.settings"]
+        let settingsRow = app.descendants(matching: .any).matching(identifier: "menu.settings").firstMatch
         guard settingsRow.waitForExistence(timeout: timeout) else { skipped.append("settings-root"); return }
         settingsRow.tap()
-        guard app.buttons["settings.waitingRoom"].waitForExistence(timeout: timeout) else {
+        guard app.descendants(matching: .any).matching(identifier: "settings.waitingRoom").firstMatch.waitForExistence(timeout: timeout) else {
             skipped.append("settings-root"); return
         }
         shoot(app, "settings-root")
 
-        visit(app, name: "settings-waiting-room", element: app.buttons["settings.waitingRoom"])
+        visit(app, name: "settings-waiting-room", element: app.descendants(matching: .any).matching(identifier: "settings.waitingRoom").firstMatch)
         visit(app, name: "settings-autofocus", label: "Autofocus")
         visit(app, name: "settings-shields", label: "Écrans de blocage")
         visit(app, name: "settings-notifications", label: "Notifications")

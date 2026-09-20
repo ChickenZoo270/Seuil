@@ -218,10 +218,10 @@ final class SeuilUITests: XCTestCase {
         let profile = app.buttons["home.settings"]
         XCTAssertTrue(profile.waitForExistence(timeout: timeout))
         profile.tap()
-        let settings = app.buttons["menu.settings"]
+        let settings = app.descendants(matching: .any).matching(identifier: "menu.settings").firstMatch
         XCTAssertTrue(settings.waitForExistence(timeout: timeout))
         settings.tap()
-        let waitingRoom = app.buttons["settings.waitingRoom"]
+        let waitingRoom = app.descendants(matching: .any).matching(identifier: "settings.waitingRoom").firstMatch
         XCTAssertTrue(waitingRoom.waitForExistence(timeout: timeout))
         waitingRoom.tap()
         XCTAssertTrue(app.buttons["settings.tryChallenge"].waitForExistence(timeout: timeout))

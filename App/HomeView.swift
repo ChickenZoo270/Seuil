@@ -226,6 +226,9 @@ struct HomeView: View {
             onRoute(route)
         } label: { label() }
         .buttonStyle(.plain)
+        // A plain style with a custom label is not always exposed as a button.
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 
     private func tile(_ symbol: String, _ title: String) -> some View {
