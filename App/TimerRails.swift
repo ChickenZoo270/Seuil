@@ -46,8 +46,9 @@ extension TimerRailItem {
                      ctaTitle: "Démarrer", isMeditation: true,
                      meditationColors: [Color(red: 0.85, green: 0.56, blue: 0.47), Color(red: 0.55, green: 0.29, blue: 0.24)]),
         TimerRailItem(title: "Respiration profonde", description: "Retrouve ton calme intérieur.", minutes: 8,
-                     ctaTitle: "Démarrer", isMeditation: true, isPro: true,
-                     meditationColors: [Color(red: 0.25, green: 0.45, blue: 0.35), Color(red: 0.08, green: 0.18, blue: 0.14)]),
+                     ctaTitle: "Démarrer", isMeditation: true,
+                     meditationColors: [Color(red: 0.25, green: 0.45, blue: 0.35), Color(red: 0.08, green: 0.18, blue: 0.14)],
+                     isPro: true),
     ]
 }
 
