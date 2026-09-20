@@ -58,7 +58,8 @@ struct OnboardingView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.top, 30)
                         .id(step)
-                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                        // A plain cross-fade: sliding transitions overlapped both steps mid-animation.
+                        .transition(.opacity)
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 .scrollIndicators(.hidden)
@@ -337,7 +338,7 @@ struct OnboardingView: View {
         }
     }
 
-    private func go(to next: Step) { withAnimation(.easeInOut(duration: 0.3)) { step = next } }
+    private func go(to next: Step) { withAnimation(.easeInOut(duration: 0.18)) { step = next } }
 
     // MARK: Pieces
 

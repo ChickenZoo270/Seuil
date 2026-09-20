@@ -80,11 +80,11 @@ struct RootView: View {
             ZStack {
                 HomeView(access: access, onUnlock: { unlocking = $0 }, onShowApps: { tab = .apps },
                          onFocus: { tab = .timer }, onRoute: { settingsRoute = $0 }, onDoors: { showDoors = true })
-                    .opacity(tab == .home ? 1 : 0)
+                    .tabPage(isCurrent: tab == .home)
                 AppsView(access: access, onUnlock: { unlocking = $0 })
-                    .opacity(tab == .apps ? 1 : 0)
+                    .tabPage(isCurrent: tab == .apps)
                 TimerView(access: access)
-                    .opacity(tab == .timer ? 1 : 0)
+                    .tabPage(isCurrent: tab == .timer)
             }
             .animation(.easeInOut(duration: 0.2), value: tab)
             FloatingTabBar(selection: $tab)
@@ -119,6 +119,16 @@ struct RootView: View {
             }
             .presentationBackground(.black)
         }
+    }
+}
+
+extension View {
+    /// Tabs stay mounted to keep their scroll position, so hidden ones must not
+    /// swallow taps or show up in the accessibility tree.
+    func tabPage(isCurrent: Bool) -> some View {
+        opacity(isCurrent ? 1 : 0)
+            .allowsHitTesting(isCurrent)
+            .accessibilityHidden(!isCurrent)
     }
 }
 
