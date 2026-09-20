@@ -1,4 +1,6 @@
 import SwiftUI
+import FamilyControls
+import ManagedSettings
 
 /// Procedural card art: gradient, light, particles and a large soft symbol.
 /// Everything is drawn in code, so the app ships no photography.
@@ -117,6 +119,7 @@ struct RuleCard<Accessory: View>: View {
     let caption: String
     let title: String
     let subtitle: String
+    var tokens: [ApplicationToken] = []
     var width: CGFloat = 200
     var height: CGFloat = 250
     @ViewBuilder var accessory: Accessory
@@ -135,7 +138,10 @@ struct RuleCard<Accessory: View>: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(caption).font(.subheadline).opacity(0.75).lineLimit(1).minimumScaleFactor(0.8)
                         Text(title).font(.title3.weight(.semibold)).lineLimit(2).minimumScaleFactor(0.85)
-                        Text(subtitle).font(.subheadline).opacity(0.7).lineLimit(1).minimumScaleFactor(0.8)
+                        HStack(spacing: 6) {
+                            Text(subtitle).font(.subheadline).opacity(0.7).lineLimit(1).minimumScaleFactor(0.8)
+                            if !tokens.isEmpty { AppIconRow(tokens: tokens, size: 24) }
+                        }
                     }
                     Spacer(minLength: 4)
                     accessory

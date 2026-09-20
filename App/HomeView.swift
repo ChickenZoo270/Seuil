@@ -133,6 +133,15 @@ struct HomeView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
+                if !access.state.applications.isEmpty {
+                    Divider().overlay(Color.white.opacity(0.08))
+                    HStack {
+                        AppIconRow(tokens: Array(access.state.applications), size: 34, maximum: 5)
+                        Spacer()
+                        Text(access.blockedApplications.isEmpty ? "Aucune app bloquée" : "\(access.blockedApplications.count) bloquées")
+                            .font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
+                    }
+                }
             }
             .glassCard()
         }

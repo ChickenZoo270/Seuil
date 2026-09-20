@@ -9,6 +9,7 @@ struct TimerView: View {
     @State private var committing: TimerPreset?
     @State private var showAllowed = false
     @State private var selection = FamilyActivitySelection()
+    @StateObject private var ambience = AmbientPlayer()
 
     private static let forYou = [
         TimerPreset(name: "Étude poussée", minutes: 90, artwork: "study"),
@@ -37,6 +38,7 @@ struct TimerView: View {
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
+                AmbienceRow(player: ambience)
                 presets("Pour toi", nil, Self.forYou)
                 presets("Détox numérique", "Une pause plus longue.", Self.detox)
                 if !access.message.isEmpty {

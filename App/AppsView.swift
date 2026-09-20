@@ -138,7 +138,8 @@ struct AppsView: View {
                     ForEach(access.state.routines) { routine in
                         Button { if !access.isLocked(routine) { editing = routine } } label: {
                             RuleCard(artwork: routine.artwork, icon: "calendar", caption: caption(for: routine),
-                                     title: routine.name, subtitle: blockLabel(routine)) {
+                                     title: routine.name, subtitle: routine.blocksAll ? "Tout bloquer" : "Bloquer",
+                                     tokens: Array(routine.applications)) {
                                 Toggle("", isOn: Binding(get: { routine.isEnabled },
                                                          set: { access.setRoutineEnabled($0, id: routine.id) }))
                                     .labelsHidden().tint(SeuilTheme.accent)
@@ -148,7 +149,8 @@ struct AppsView: View {
                     }
                     Button { showLimits = true } label: {
                         RuleCard(artwork: "limit", icon: "hourglass", caption: "\(access.state.rules.count) apps",
-                                 title: "Limites de temps", subtitle: "Par app, chaque jour") { EmptyView() }
+                                 title: "Limites de temps", subtitle: "Chaque jour",
+                                 tokens: Array(access.state.applications)) { EmptyView() }
                     }
                     .buttonStyle(.plain)
                     Button { addRule() } label: {

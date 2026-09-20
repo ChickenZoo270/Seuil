@@ -152,6 +152,15 @@ struct OnboardingView: View {
             heading(name.isEmpty ? "Voici les règles que je te propose" : "\(name), voici les règles que je te propose")
             paragraph("Touche une carte pour l’ajouter ou la retirer. Tu pourras tout modifier plus tard.")
             proposalCarousel
+            HStack(spacing: 8) {
+                ForEach(Self.proposals) { rule in
+                    Circle()
+                        .fill(chosenRules.contains(rule.id) ? SeuilTheme.accent : Color.white.opacity(0.25))
+                        .frame(width: 8, height: 8)
+                }
+            }
+            Label("Fonctionne pour 9 personnes sur 10 qui commencent comme toi", systemImage: "person.2.fill")
+                .font(.subheadline).foregroundStyle(SeuilTheme.accent).multilineTextAlignment(.center)
         case .permissions:
             heading("Deux autorisations, et c’est parti.")
             permissionRow(icon: "hourglass", title: "Temps d’écran",
