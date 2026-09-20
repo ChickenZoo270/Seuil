@@ -89,10 +89,16 @@ final class ScreenshotTour: XCTestCase {
     private func walkMainApp(_ app: XCUIApplication) {
         shoot(app, "home")
 
-        openProfileMenu(app)
-        _ = app.otherElements["home.profileMenu"].waitForExistence(timeout: timeout)
-        shoot(app, "profile-menu")
-        closeProfileMenu(app)
+        let profile = app.buttons["home.settings"]
+        if profile.waitForExistence(timeout: timeout) {
+            profile.tap()
+            _ = app.descendants(matching: .any).matching(identifier: "home.profileMenu").firstMatch.waitForExistence(timeout: timeout)
+            shoot(app, "profile-menu")
+            // Tap the scrim above the menu to close it.
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.12)).tap()
+        } else {
+            skipped.append("profile-menu")
+        }
 
         walkAppsTab(app)
         walkTimerTab(app)
