@@ -118,7 +118,7 @@ final class ScreenshotTour: XCTestCase {
         guard newRule.waitForExistence(timeout: timeout) else { skipped.append("apps-new-rule-sheet"); return }
         newRule.tap()
         shoot(app, "apps-new-rule-sheet")
-        app.swipeDown()
+        closeSheet(app)
     }
 
     private func walkTimerTab(_ app: XCUIApplication) {
@@ -132,7 +132,7 @@ final class ScreenshotTour: XCTestCase {
         start.tap()
         guard app.buttons["commit.hold"].waitForExistence(timeout: timeout) else { skipped.append("commit-sheet"); return }
         shoot(app, "commit-sheet")
-        app.swipeDown()
+        closeSheet(app)
     }
 
     /// Relaunches straight into the settings: driving the profile menu proved flaky.
@@ -206,6 +206,12 @@ final class ScreenshotTour: XCTestCase {
         app.launchArguments = ["--skip-onboarding", "--open-settings"]
         app.launch()
         _ = app.descendants(matching: .any).matching(identifier: "settings.waitingRoom").firstMatch.waitForExistence(timeout: timeout)
+    }
+
+    /// Sheets close from their own button; a swipe often lands on a scroll view.
+    private func closeSheet(_ app: XCUIApplication) {
+        let close = app.buttons["Fermer"].firstMatch
+        if close.waitForExistence(timeout: 2) { close.tap() } else { app.swipeDown() }
     }
 
     private func goBack(_ app: XCUIApplication) {

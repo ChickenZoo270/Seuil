@@ -39,9 +39,13 @@ struct HomeView: View {
                     .accessibilityIdentifier("home.hero")
                     .accessibilityLabel("Tes portes")
                 if access.authorized {
-                    // The report is drawn out of process and swallows taps: a clear layer opens the detail.
+                    // The report is drawn out of process: it eats every touch, which
+                    // froze the scroll as soon as a finger landed on it. Turning its
+                    // interaction off hands drags back to the ScrollView, and a clear
+                    // layer on top keeps the tap that opens the detail.
                     DeviceActivityReport(.home, filter: filter)
                         .frame(minHeight: 760)
+                        .allowsHitTesting(false)
                         .overlay(alignment: .top) {
                             Color.white.opacity(0.001).frame(height: 330)
                                 .onTapGesture { showDetail = true }
@@ -53,7 +57,8 @@ struct HomeView: View {
                 }
                 nextRuleCard
                 streakCard
-                Color.clear.frame(height: 150)
+                // Clears the floating unlock pill (92 + 56) and the tab bar.
+                Color.clear.frame(height: 220)
             }
             .padding(.horizontal, 20)
         }
