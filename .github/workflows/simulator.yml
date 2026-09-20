@@ -51,7 +51,12 @@ jobs:
           # Ad hoc signing keeps the App Group entitlement, so shared settings persist.
           # The tour writes one PNG per screen; the runner reads SCREENSHOT_DIR from this variable.
           export TEST_RUNNER_SCREENSHOT_DIR="$PWD/simulator-evidence/screens"
-          xcodebuild test -project Intention.xcodeproj -scheme Intention \n            -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath UITestBuild \n            -resultBundlePath simulator-evidence/UITests.xcresult \n            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= 2>&1 | tee simulator-evidence/uitests.log | grep -E "Test Case|error:|failed|passed|TEST (SUCCEEDED|FAILED)"
+          xcodebuild test -project Intention.xcodeproj -scheme Intention \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath UITestBuild \
+            -resultBundlePath simulator-evidence/UITests.xcresult \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= 2>&1 \
+            | tee simulator-evidence/uitests.log \
+            | grep -E "Test Case|error:|failed|passed|TEST (SUCCEEDED|FAILED)"
       - name: Preserve simulator evidence (not a Screen Time device test)
         if: always()
         uses: actions/upload-artifact@v4
