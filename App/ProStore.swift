@@ -90,8 +90,10 @@ final class ProStore: ObservableObject {
     var plans: [ProPlan] {
         guard !products.isEmpty else {
             return [
-                ProPlan(id: ProProducts.annual, title: "Annuel", price: "—", detail: "7 jours d’essai gratuit",
+                ProPlan(id: ProProducts.annual, title: "Annuel", price: "bientôt", detail: "7 jours d’essai gratuit",
                         perDay: "", badge: "7 JOURS OFFERTS"),
+                ProPlan(id: ProProducts.monthly, title: "Mensuel", price: "bientôt", detail: "Sans engagement",
+                        perDay: "", badge: nil),
             ]
         }
         return products.map { product in

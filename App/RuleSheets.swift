@@ -59,17 +59,17 @@ struct AppCategoryTile: View {
     var body: some View {
         VStack(spacing: 10) {
             content
-                .frame(width: 110, height: 110)
+                .frame(maxWidth: .infinity).frame(height: 110)
                 .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             VStack(spacing: 4) {
-                HStack(spacing: 4) {
-                    Text(title).font(.subheadline.weight(.semibold)).multilineTextAlignment(.center)
-                    if showsProBadge { ProBadge() }
-                }
+                Text(title).font(.subheadline.weight(.semibold)).multilineTextAlignment(.center)
+                    .lineLimit(2).minimumScaleFactor(0.8).fixedSize(horizontal: false, vertical: true)
+                if showsProBadge { ProBadge() }
                 Text("\(count) élément\(count > 1 ? "s" : "")").font(.caption).foregroundStyle(SeuilTheme.secondaryInk)
+                    .lineLimit(1).minimumScaleFactor(0.8)
             }
         }
-        .frame(width: 130)
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder private var content: some View {

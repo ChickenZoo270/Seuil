@@ -62,6 +62,14 @@ struct PaywallView: View {
                 Spacer()
                 footer
                     .redacted(reason: store.isLoading ? .placeholder : [])
+                    // The footer floats over the scroll: without a fading backdrop
+                    // the card underneath reads straight through the button.
+                    .padding(.top, 40)
+                    .background(
+                        LinearGradient(colors: [.clear, .black.opacity(0.92), .black],
+                                       startPoint: .top, endPoint: .bottom)
+                            .ignoresSafeArea()
+                    )
             }
         }
         .onAppear { if selectedPlanID == nil { selectedPlanID = plans.first(where: { $0.badge != nil })?.id ?? plans.first?.id } }
@@ -83,7 +91,7 @@ struct PaywallView: View {
 
     private var title: some View {
         VStack(spacing: 4) {
-            Text("Ton parcours commence.")
+            Text("Ton parcours Focus commence.")
             Text("Choisis ton essai.")
         }
         .font(.system(size: 30, weight: .bold))

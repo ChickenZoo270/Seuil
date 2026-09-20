@@ -67,7 +67,7 @@ struct HomeView: View {
             .padding(.horizontal, 20)
         }
         .scrollIndicators(.hidden)
-        .overlay(alignment: .bottom) { unlockPill.padding(.bottom, 92) }
+        .overlay(alignment: .bottom) { unlockPill.padding(.horizontal, 20).padding(.bottom, 92) }
         .overlay(alignment: .topTrailing) {
             if showMenu {
                 ZStack(alignment: .topTrailing) {

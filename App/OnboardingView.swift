@@ -57,6 +57,9 @@ struct OnboardingView: View {
                     VStack(spacing: 22) { content }
                         .frame(maxWidth: .infinity)
                         .padding(.top, 30)
+                        // The button sits below the scroll, so the last card of a
+                        // step needs room or it reads as cut in half.
+                        .padding(.bottom, 24)
                         .id(step)
                         // A plain cross-fade: sliding transitions overlapped both steps mid-animation.
                         .transition(.opacity)

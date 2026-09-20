@@ -159,17 +159,14 @@ struct AppsView: View {
     private var groupsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Apps").font(.title3.weight(.semibold))
-            ScrollView(.horizontal) {
-                HStack(alignment: .top, spacing: 16) {
-                    categoryButton(.allowed, title: "Toujours autorisées", tokens: access.state.allowedApplications, symbol: "checkmark.shield")
-                    categoryButton(.never, title: "Jamais autorisées", tokens: access.state.neverAllowed, symbol: "eye.slash", pro: true)
-                    categoryButton(.distracting, title: "Distrayantes", tokens: access.state.applications, symbol: "sparkles")
-                }
-                .scrollTargetLayout()
-                .padding(.vertical, 4)
+            // Exactly three tiles: they share the width instead of scrolling,
+            // so none of them is ever cut in the middle of a word.
+            HStack(alignment: .top, spacing: 12) {
+                categoryButton(.allowed, title: "Toujours autorisées", tokens: access.state.allowedApplications, symbol: "checkmark.shield")
+                categoryButton(.never, title: "Jamais autorisées", tokens: access.state.neverAllowed, symbol: "eye.slash", pro: true)
+                categoryButton(.distracting, title: "Distrayantes", tokens: access.state.applications, symbol: "sparkles")
             }
-            .scrollTargetBehavior(.viewAligned)
-            .scrollIndicators(.hidden)
+            .padding(.vertical, 4)
         }
     }
 

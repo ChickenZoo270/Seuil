@@ -38,7 +38,9 @@ struct TimerView: View {
             .padding(.top, 8)
         }
         .scrollIndicators(.hidden)
-        .sheet(item: $committing) { preset in CommitSheet(access: access, preset: preset) }
+        .sheet(item: $committing) { preset in
+            CommitSheet(access: access, preset: preset).presentationBackground(.black)
+        }
         .fullScreenCover(isPresented: runningBinding) { TimerRunningView(access: access) }
         .familyActivityPicker(isPresented: $showAllowed, selection: $selection)
         .onChange(of: showAllowed) { old, new in
