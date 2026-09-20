@@ -88,8 +88,15 @@ struct NotificationSettingsView: View {
 
 struct ShieldDesignView: View {
     @ObservedObject var access: AccessController
-    @EnvironmentObject private var store: ProStore
     @Environment(\.requestPro) private var requestPro
+    // Not @EnvironmentObject: this page is reached both from a sheet in
+    // ContentView and from a NavigationLink in SettingsView, and a missing
+    // ancestor .environmentObject(ProStore) would hard-crash the app the
+    // instant `store` is read. Pro status is derived from UserDefaults and
+    // StoreKit entitlements (not instance-local state), so owning a private
+    // instance here converges to the same value without that crash risk.
+    @ObservedObject private var store = ProStore.shared
+    @Environment(\.dismiss) private var dismiss
     @State private var preview = ShieldPack.standard.messages[0]
     @State private var previewPack = ShieldPack.standard
 
@@ -98,26 +105,61 @@ struct ShieldDesignView: View {
             PreviewPhone {
                 VStack(spacing: 12) {
                     Text(previewPack.emoji).font(.system(size: 64))
-                    Text("Petit rappel").font(.title2.weight(.semibold))
+                    Text(previewPack.title).font(.title2.weight(.semibold))
+                        .lineLimit(2).minimumScaleFactor(0.8).multilineTextAlignment(.center)
                     Text(preview).font(.body).foregroundStyle(SeuilTheme.secondaryInk).multilineTextAlignment(.center)
                         .padding(.horizontal, 26)
                 }
                 .padding(.top, 90)
             }
-            SettingsCard(title: "Messages") {
+            RailHeader(title: "Sélectionnées",
+                       subtitle: "Un message est tiré au hasard parmi les séries activées à chaque ouverture d’une app bloquée.")
+            SettingsCard {
                 ForEach(ShieldPack.allCases, id: \.self) { pack in
-                    let locked = !store.isPro && !FreePlan.allows(pack)
-                    SettingsToggleRow(emoji: pack.emoji, title: pack.title + (locked ? "  🔒" : ""), subtitle: pack.summary,
-                                      isOn: Binding(get: { access.state.preferences.shieldPacks.contains(pack) },
-                                                    set: { on in
-                                                        if locked { requestPro() } else { toggle(pack, on: on) }
-                                                    }))
+                    packRow(pack)
                     if pack != ShieldPack.allCases.last { RowDivider() }
                 }
             }
-            Text("Un message est tiré au hasard parmi les séries activées à chaque ouverture d’une app bloquée.")
-                .font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
+            HStack {
+                Spacer()
+                CircleIconButton(symbol: "checkmark", size: 52, prominent: true) { dismiss() }
+                    .accessibilityLabel("Valider")
+                    .accessibilityIdentifier("shields.confirm")
+                Spacer()
+            }
+            .padding(.top, 4)
         }
+    }
+
+    // A single Toggle (not a Button wrapping a nested Toggle) drives both the
+    // row-wide tap and the switch, matching SettingsToggleRow's pattern —
+    // nesting two interactive controls would fire both handlers per tap.
+    private func packRow(_ pack: ShieldPack) -> some View {
+        let locked = !store.isPro && !FreePlan.allows(pack)
+        let isOn = access.state.preferences.shieldPacks.contains(pack)
+        return Toggle(isOn: Binding(get: { isOn }, set: { on in
+            if locked { requestPro() } else { toggle(pack, on: on) }
+        })) {
+            HStack(spacing: 16) {
+                Text(pack.emoji).font(.title2).frame(width: 32)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        Text(pack.title).font(.title3.weight(.bold)).lineLimit(1).minimumScaleFactor(0.85)
+                        if locked { ProBadge() }
+                    }
+                    Text(pack.summary).font(.body).foregroundStyle(SeuilTheme.secondaryInk)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+            }
+        }
+        // Left enabled (not `.disabled`) so a tap on a locked row still reaches
+        // the binding's setter and calls requestPro(); the setter never
+        // actually flips `shieldPacks` for a locked pack, so the switch snaps
+        // back to its real (off) state on the next redraw.
+        .tint(Color(red: 0.86, green: 0.96, blue: 0.62))
+        .padding(.horizontal, 20).padding(.vertical, 16)
+        .accessibilityLabel(pack.title)
     }
 
     private func toggle(_ pack: ShieldPack, on: Bool) {

@@ -124,24 +124,17 @@ final class SeuilUITests: XCTestCase {
         selectChallenge("Jeux de maths", in: app)
     }
 
-    func testRoutineTemplateNeedsAppsBeforeSaving() {
+    func testScheduleTemplateOpensTheRuleForm() {
         let app = launch(onboarded: true)
         app.buttons["Mes Apps"].tap()
         app.buttons["apps.newRule"].tap()
-        let add = app.buttons["Ajouter Sommeil profond"]
-        XCTAssertTrue(add.waitForExistence(timeout: timeout))
-        add.tap()
+        let template = app.buttons["template.Planification"]
+        XCTAssertTrue(template.waitForExistence(timeout: timeout))
+        template.tap()
 
-        let save = app.buttons["Enregistrer"]
-        XCTAssertTrue(save.waitForExistence(timeout: timeout))
-        XCTAssertFalse(save.isEnabled, "a routine without apps cannot be saved")
-        XCTAssertTrue(app.staticTexts["Se termine le lendemain matin."].exists)
-        XCTAssertTrue(app.switches["Mode strict"].exists)
-        // Tapping a Form row's centre misses the control; tap the switch itself.
-        app.switches["Bloquer toutes les apps"].switches.firstMatch.tap()
-        XCTAssertTrue(save.isEnabled, "blocking everything needs no app list")
-        app.buttons["Annuler"].tap()
-        XCTAssertFalse(save.waitForExistence(timeout: 2))
+        // The form commits by holding, so there is no save button to check.
+        XCTAssertTrue(app.buttons["rule.pickApps"].waitForExistence(timeout: timeout), "the form asks which apps to block")
+        XCTAssertTrue(app.buttons["commit.hold"].waitForExistence(timeout: timeout), "the rule is confirmed by holding")
     }
 
     func testTimerAdjustsDurationAndAsksToCommit() {

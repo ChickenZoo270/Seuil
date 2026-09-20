@@ -41,8 +41,13 @@ enum AppListKind: CaseIterable {
 
 struct AppListView: View {
     @ObservedObject var access: AccessController
-    @EnvironmentObject private var store: ProStore
     @Environment(\.requestPro) private var requestPro
+    // See ShieldDesignView in SettingsPages.swift for why this is a private
+    // @StateObject rather than @EnvironmentObject: it removes any chance of a
+    // hard crash if this page is ever reached without an ancestor
+    // .environmentObject(ProStore), since Pro status is re-derived from
+    // UserDefaults/StoreKit regardless of which ProStore instance reads it.
+    @ObservedObject private var store = ProStore.shared
     let kind: AppListKind
     @State private var showPicker = false
     @State private var selection = FamilyActivitySelection()
@@ -118,19 +123,25 @@ struct AutofocusView: View {
         let first = access.state.preferences.autofocusFrequency.thresholds.first ?? 15
         PageScaffold(title: "Autofocus") {
             PreviewPhone {
+                // `.frame(width: 280)` matches PreviewPhone's own screen width so the
+                // toast can never grow wider than the phone outline that contains it.
                 HStack(alignment: .top, spacing: 12) {
                     SeuilMark().scaleEffect(0.8).frame(width: 44, height: 44)
                         .background(Color.black, in: RoundedRectangle(cornerRadius: 10))
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("Attention 🙌").font(.headline)
-                            Spacer()
-                            Text("maintenant").font(.caption).foregroundStyle(SeuilTheme.secondaryInk)
+                            Text("Attention 🙌").font(.headline).lineLimit(1)
+                            Spacer(minLength: 8)
+                            Text("maintenant").font(.caption).foregroundStyle(SeuilTheme.secondaryInk).lineLimit(1)
                         }
-                        Text(UsageAlert.message(minutes: first, appName: "Instagram").body).font(.subheadline)
+                        Text(UsageAlert.message(minutes: first, appName: "Instagram").body)
+                            .font(.subheadline)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .padding(14)
+                .frame(width: 280 - 28)
                 .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 26))
                 .padding(.horizontal, 14)
                 .padding(.top, 110)
@@ -139,13 +150,13 @@ struct AutofocusView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Fréquence des interventions").font(.title3)
+                            .lineLimit(2).minimumScaleFactor(0.85)
                         Text("À quelle fréquence Autofocus intervient").foregroundStyle(SeuilTheme.secondaryInk)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer()
-                    Picker("Fréquence", selection: access.preference(\.autofocusFrequency)) {
-                        ForEach(AutofocusFrequency.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .tint(SeuilTheme.secondaryInk)
+                    Spacer(minLength: 8)
+                    ChevronStepper(values: AutofocusFrequency.allCases, title: { $0.title },
+                                   selection: access.preference(\.autofocusFrequency))
                 }
                 .padding(20)
             }

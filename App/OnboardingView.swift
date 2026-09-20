@@ -253,15 +253,20 @@ struct OnboardingView: View {
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
+            .scrollTargetLayout()
             .padding(.horizontal, 4)
         }
         .scrollIndicators(.hidden)
+        // Cards snap one by one, so the next one peeks on purpose instead of
+        // looking like a card cut in half by the screen edge.
+        .scrollTargetBehavior(.viewAligned)
+        .scrollClipDisabled()
     }
 
     private var buttons: some View {
         VStack(spacing: 12) {
             Button(action: advance) { Text(buttonTitle) }
-                .buttonStyle(PillButtonStyle(variant: step == .unlock ? .bright : .glass))
+                .buttonStyle(PillButtonStyle(variant: .bright))
                 .disabled(step == .goals && chosenGoals.isEmpty)
                 .accessibilityIdentifier("onboarding.primary")
             switch step {

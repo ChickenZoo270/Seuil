@@ -11,36 +11,24 @@ struct TimerView: View {
     @State private var selection = FamilyActivitySelection()
     @StateObject private var ambience = AmbientPlayer()
 
-    private static let forYou = [
-        TimerPreset(name: "Étude poussée", minutes: 90, artwork: "study"),
-        TimerPreset(name: "Trajet", minutes: 30, artwork: "commute"),
-    ]
-    private static let detox = [
-        TimerPreset(name: "Prends l’air", minutes: 8 * 60, artwork: "air", subtitle: "Pas d’apps distrayantes"),
-        TimerPreset(name: "Journée tranquille", minutes: 24 * 60, artwork: "calm", subtitle: "Une journée entière sans distraction"),
-    ]
-
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 Text("Minuteur").font(.system(size: 40, weight: .bold))
                 display
-                if !isRunning { controls }
-                Button { openAllowedPicker() } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "lock.shield.fill").foregroundStyle(SeuilTheme.accent)
-                        Text(access.state.allowedApplications.isEmpty ? "Bloque toutes les apps" : "Tout sauf \(access.state.allowedApplications.count) apps autorisées")
-                        Image(systemName: "chevron.right").font(.caption.weight(.bold))
+                if !isRunning {
+                    VStack(spacing: 14) {
+                        durationStepper
+                        startButton
+                        blockedAppsPill
                     }
-                    .font(.headline)
-                    .padding(.horizontal, 18).padding(.vertical, 12)
-                    .background(Color.white.opacity(0.08), in: Capsule())
+                    AmbienceRow(player: ambience)
                 }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
-                AmbienceRow(player: ambience)
-                presets("Pour toi", nil, Self.forYou)
-                presets("Détox numérique", "Une pause plus longue.", Self.detox)
+                recentSection
+                TimerRailSection(title: "Pour toi", items: TimerRailItem.forYou, isEnabled: !isRunning) { committing = $0.asPreset }
+                TimerRailSection(title: "Détox numérique", subtitle: "Une pause plus longue.", items: TimerRailItem.detox, isEnabled: !isRunning) { committing = $0.asPreset }
+                TimerRailSection(title: "Histoires pour s’endormir", subtitle: "Détends-toi et endors-toi.", items: TimerRailItem.sleepStories, isEnabled: !isRunning) { committing = $0.asPreset }
+                TimerRailSection(title: "Méditations", subtitle: "De courtes méditations guidées.", items: TimerRailItem.meditations, cardHeight: 220, isEnabled: !isRunning) { committing = $0.asPreset }
                 if !access.message.isEmpty {
                     Text(access.message).font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
                 }
@@ -51,6 +39,7 @@ struct TimerView: View {
         }
         .scrollIndicators(.hidden)
         .sheet(item: $committing) { preset in CommitSheet(access: access, preset: preset) }
+        .fullScreenCover(isPresented: runningBinding) { TimerRunningView(access: access) }
         .familyActivityPicker(isPresented: $showAllowed, selection: $selection)
         .onChange(of: showAllowed) { old, new in
             if old && !new { access.setAllowedApplications(selection.applicationTokens) }
@@ -58,6 +47,12 @@ struct TimerView: View {
     }
 
     private var isRunning: Bool { access.state.isFocusActive(now: Date()) }
+
+    /// The cover presents itself whenever a focus session is active and dismisses on its own
+    /// once `access.state.focus` is cleared (naturally, or via the "Partir tôt ?" hold).
+    private var runningBinding: Binding<Bool> {
+        Binding(get: { isRunning }, set: { _ in })
+    }
 
     private var display: some View {
         TimelineView(.periodic(from: .now, by: 1)) { timeline in
@@ -67,36 +62,61 @@ struct TimerView: View {
                 }
                 return minutes * 60
             }()
-            VStack(spacing: 10) {
-                LCDClock(seconds: seconds)
-                if isRunning, let focus = access.state.focus {
-                    Text("\(focus.name) en cours\(focus.isStrict ? " · mode strict" : "")")
-                        .font(.headline).foregroundStyle(SeuilTheme.accent)
-                }
-            }
+            LCDClock(seconds: seconds)
         }
     }
 
-    private var controls: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 12) {
-                CircleIconButton(symbol: "minus", size: 60) { minutes = max(5, minutes - step(for: minutes - 1)) }
+    /// One grouped capsule: circular "−" at the left end, the duration label centred, "+" at the right end.
+    private var durationStepper: some View {
+        ZStack {
+            Capsule().fill(Color.white.opacity(0.06))
+            Text(Scoring.duration(Double(minutes)))
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.white)
+            HStack {
+                CircleIconButton(symbol: "minus", size: 48) { minutes = max(5, minutes - step(for: minutes - 1)) }
                     .accessibilityLabel("Moins")
-                Text(Scoring.duration(Double(minutes)))
-                    .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
-                    .lineLimit(1).minimumScaleFactor(0.6)
-                    .frame(maxWidth: .infinity, minHeight: 60)
-                    .background(Color.white.opacity(0.06), in: Capsule())
-                CircleIconButton(symbol: "plus", size: 60) { minutes = min(24 * 60, minutes + step(for: minutes)) }
+                Spacer()
+                CircleIconButton(symbol: "plus", size: 48) { minutes = min(24 * 60, minutes + step(for: minutes)) }
                     .accessibilityLabel("Plus")
             }
-            Button {
-                committing = TimerPreset(name: "Minuteur", minutes: minutes, artwork: "default")
-            } label: {
-                Label("Démarrer", systemImage: "play.fill")
+            .padding(6)
+        }
+        .frame(height: 60)
+        .accessibilityIdentifier("timer.duration")
+    }
+
+    private var startButton: some View {
+        Button {
+            committing = TimerPreset(name: "Minuteur", minutes: minutes, artwork: "default")
+        } label: {
+            GradientPillLabel(title: "Démarrer", symbol: "play.fill")
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("timer.start")
+    }
+
+    private var blockedAppsPill: some View {
+        Button { openAllowedPicker() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.shield.fill").foregroundStyle(SeuilTheme.accent)
+                Text(access.state.allowedApplications.isEmpty ? "Apps bloquées" : "Tout sauf \(access.state.allowedApplications.count) apps autorisées")
+                Image(systemName: "chevron.right").font(.caption.weight(.bold))
             }
-            .buttonStyle(PillButtonStyle())
-            .accessibilityIdentifier("timer.start")
+            .font(.subheadline.weight(.medium))
+            .padding(.horizontal, 18).padding(.vertical, 12)
+            .background(Color.white.opacity(0.08), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .accessibilityIdentifier("timer.blockedApps")
+    }
+
+    private var recentSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            RailHeader(title: "Récents")
+            TimerRailCard(item: .recent, width: nil, height: 180) { committing = TimerRailItem.recent.asPreset }
+                .disabled(isRunning)
         }
     }
 
@@ -106,22 +126,6 @@ struct TimerView: View {
         case ..<60: return 5
         case ..<180: return 15
         default: return 60
-        }
-    }
-
-    private func presets(_ title: String, _ subtitle: String?, _ items: [TimerPreset]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SectionTitle(title: title, subtitle: subtitle)
-            ScrollView(.horizontal) {
-                HStack(spacing: 14) {
-                    ForEach(items) { preset in
-                        Button { committing = preset } label: { PresetCard(preset: preset) }
-                            .buttonStyle(.plain)
-                            .disabled(isRunning)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
         }
     }
 
@@ -138,29 +142,6 @@ struct TimerPreset: Identifiable {
     let artwork: String
     var subtitle: String? = nil
     var id: String { "\(name)-\(minutes)" }
-}
-
-struct PresetCard: View {
-    let preset: TimerPreset
-
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Artwork(key: preset.artwork)
-            VStack(alignment: .leading, spacing: 8) {
-                Text(preset.name).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.85)
-                if let subtitle = preset.subtitle { Text(subtitle).font(.subheadline).opacity(0.8) }
-                Label(Scoring.duration(Double(preset.minutes)), systemImage: "play.fill")
-                    .font(.headline)
-                    .padding(.horizontal, 16).padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
-            }
-            .padding(20)
-            .foregroundStyle(.white)
-        }
-        .frame(width: 260, height: 320)
-        .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 36, style: .continuous).strokeBorder(Color.white.opacity(0.1)))
-    }
 }
 
 /// Retro LCD countdown drawn with seven-segment digits.
@@ -239,7 +220,7 @@ struct SevenSegmentDigit: View {
 /// Confirms a timer session: which apps, how long, strict or not, then hold to commit.
 struct CommitSheet: View {
     @ObservedObject var access: AccessController
-    @EnvironmentObject private var store: ProStore
+    @ObservedObject private var store = ProStore.shared
     @Environment(\.requestPro) private var requestPro
     let preset: TimerPreset
     @State private var minutes: Int
@@ -349,5 +330,131 @@ struct HoldToCommitButton: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { action() }
             .accessibilityIdentifier("commit.hold")
+    }
+}
+
+/// Full-screen live countdown, presented while a focus session is running.
+struct TimerRunningView: View {
+    @ObservedObject var access: AccessController
+    @Environment(\.dismiss) private var dismiss
+    @State private var showLeave = false
+
+    var body: some View {
+        ZStack {
+            runningBackground
+            VStack {
+                HStack {
+                    CircleIconButton(symbol: "xmark", size: 40) { showLeave = true }
+                        .accessibilityIdentifier("session.leave")
+                        .accessibilityLabel("Quitter le minuteur")
+                    Spacer()
+                }
+                Spacer()
+                display
+                Spacer()
+                Spacer()
+            }
+            .padding(20)
+        }
+        .ignoresSafeArea()
+        .sheet(isPresented: $showLeave) {
+            LeaveEarlySheet {
+                access.mutate { $0.focus = nil }
+                showLeave = false
+                dismiss()
+            }
+            .presentationDetents([.fraction(0.45)])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    /// Same moody, procedurally-drawn backdrop the whole running screen bleeds from.
+    private var runningBackground: some View {
+        ZStack {
+            Color.black
+            Artwork(key: "limit").opacity(0.6)
+            LinearGradient(colors: [.black.opacity(0.1), .black], startPoint: .top, endPoint: .bottom)
+        }
+    }
+
+    private var display: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            let seconds: Int = {
+                guard let focus = access.state.focus, focus.endsAt > timeline.date else { return 0 }
+                return Int(focus.endsAt.timeIntervalSince(timeline.date).rounded(.up))
+            }()
+            LCDClock(seconds: seconds)
+        }
+    }
+}
+
+/// "Partir tôt ?" bottom sheet: maroon-to-black gradient, hold-to-confirm pill, plain cancel link.
+struct LeaveEarlySheet: View {
+    let onConfirm: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Capsule().fill(Color.white.opacity(0.25)).frame(width: 36, height: 5).padding(.top, 10)
+            ZStack {
+                Circle().strokeBorder(Color(red: 0.94, green: 0.42, blue: 0.42).opacity(0.6), lineWidth: 1.5).frame(width: 56, height: 56)
+                Image(systemName: "figure.run").font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Color(red: 0.94, green: 0.42, blue: 0.42))
+            }
+            Text("Partir tôt ?").font(.title2.weight(.bold))
+            Text("N’abandonne pas, tu as commencé pour une raison.")
+                .font(.subheadline)
+                .foregroundStyle(SeuilTheme.secondaryInk)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            HoldToLeaveButton(onConfirm: onConfirm)
+                .padding(.horizontal, 24)
+            Button("Laisse tomber") { dismiss() }
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.bottom, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(
+            LinearGradient(colors: [Color(red: 0.24, green: 0.08, blue: 0.09), Color.black],
+                           startPoint: .top, endPoint: .bottom)
+        )
+        .ignoresSafeArea(edges: .bottom)
+    }
+}
+
+/// Hold-to-confirm pill whose fill sweeps left-to-right, then swaps to a white "Terminer" pill.
+struct HoldToLeaveButton: View {
+    let onConfirm: () -> Void
+    @State private var progress: CGFloat = 0
+    @State private var completed = false
+    @GestureState private var pressing = false
+    private let duration = 1.4
+
+    var body: some View {
+        Text(completed ? "Terminer" : (pressing ? "Maintenez appuyé…" : "Maintiens pour partir"))
+            .font(.headline)
+            .foregroundStyle(completed ? .black : .white)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .background(alignment: .leading) {
+                GeometryReader { geo in
+                    Capsule().fill(Color.white.opacity(0.35)).frame(width: geo.size.width * progress)
+                }
+            }
+            .background(completed ? AnyShapeStyle(Color.white) : AnyShapeStyle(Color.white.opacity(0.12)), in: Capsule())
+            .clipShape(Capsule())
+            .gesture(LongPressGesture(minimumDuration: duration)
+                .updating($pressing) { value, state, _ in state = value }
+                .onEnded { _ in
+                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                    completed = true
+                    onConfirm()
+                })
+            .onChange(of: pressing) { _, isPressing in
+                withAnimation(isPressing ? .linear(duration: duration) : .easeOut(duration: 0.2)) { progress = isPressing ? 1 : 0 }
+            }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onConfirm() }
+            .accessibilityIdentifier("session.hold")
     }
 }

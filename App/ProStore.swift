@@ -7,6 +7,10 @@ import IntentionCore
 /// then the store simply reports no product and the paywall says so.
 @MainActor
 final class ProStore: ObservableObject {
+    /// One store for the whole app. Views read it directly instead of through
+    /// the environment, where a sheet that forgets to pass it along crashes.
+    static let shared = ProStore()
+
     @Published private(set) var products: [Product] = []
     @Published private(set) var isPro = false
     @Published private(set) var isLoading = true

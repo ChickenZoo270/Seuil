@@ -28,6 +28,13 @@ struct PaywallView: View {
     private var selectedPlan: ProPlan? { plans.first { $0.id == selectedPlanID } ?? plans.first }
     private var productsUnavailable: Bool { store.products.isEmpty }
 
+    /// What the CTA's small print says: no charge today when there is a free
+    /// trial (badge present), otherwise the price charged right away.
+    private var chargeSummary: String {
+        guard let plan = selectedPlan else { return "Aucun paiement aujourd’hui" }
+        return plan.badge != nil ? "Puis \(plan.price) après ton essai gratuit" : "Facturé \(plan.price) aujourd’hui"
+    }
+
     var body: some View {
         ZStack {
             GlowBackground()
@@ -37,16 +44,24 @@ struct PaywallView: View {
                     title
                     timeline
                     plansSection
-                    if productsUnavailable { unavailableCard }
+                    // The "products not signed yet" card only makes sense once loading
+                    // finished and truly came back empty — during loading it would
+                    // flash beneath the skeleton for no reason.
+                    if productsUnavailable && !store.isLoading { unavailableCard }
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 8)
                 .padding(.bottom, 210)
             }
             .scrollIndicators(.hidden)
+            // While StoreKit is still fetching products, redact the whole layout into
+            // a skeleton instead of showing empty/placeholder pricing.
+            .redacted(reason: store.isLoading ? .placeholder : [])
+            .allowsHitTesting(!store.isLoading)
             VStack {
                 Spacer()
                 footer
+                    .redacted(reason: store.isLoading ? .placeholder : [])
             }
         }
         .onAppear { if selectedPlanID == nil { selectedPlanID = plans.first(where: { $0.badge != nil })?.id ?? plans.first?.id } }
@@ -202,13 +217,13 @@ struct PaywallView: View {
             } label: {
                 VStack(spacing: 2) {
                     Text("Démarrer mon essai gratuit")
-                    Text("Aucun paiement aujourd’hui")
+                    Text(chargeSummary)
                         .font(.footnote)
                         .opacity(0.7)
                 }
             }
             .buttonStyle(PillButtonStyle(variant: .bright))
-            .disabled(productsUnavailable || selectedPlan == nil)
+            .disabled(store.isLoading || productsUnavailable || selectedPlan == nil)
             .accessibilityIdentifier("paywall.cta")
 
             HStack(spacing: 22) {
@@ -230,18 +245,8 @@ struct PaywallView: View {
     }
 }
 
-/// Small badge tagging a feature or row as Pro-only.
-struct ProBadge: View {
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "bolt.fill").font(.caption2.weight(.bold))
-            Text("PRO").font(.caption2.weight(.bold))
-        }
-        .foregroundStyle(SeuilTheme.accent)
-        .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(Capsule().strokeBorder(SeuilTheme.accentGradient, lineWidth: 1))
-    }
-}
+// ProBadge lives in SeuilKit.swift and is reused here; redefining it locally
+// used to collide with that declaration and would fail to build.
 
 /// List of every Pro feature, used on the paywall or in settings to explain the upgrade.
 struct ProFeatureList: View {

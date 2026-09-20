@@ -28,6 +28,8 @@ struct HomeView: View {
     @State private var showDetail = false
     @State private var showMenu = false
     @AppStorage("profile.name") private var name = ""
+    @AppStorage("profile.hours") private var hours = 4.0
+    @AppStorage("profile.rate") private var rate = 25
     @State private var filter = todayFilter()
 
     var body: some View {
@@ -56,6 +58,8 @@ struct HomeView: View {
                     permissionCard
                 }
                 nextRuleCard
+                if let task = setupTask { setupCard(task) }
+                analysesCard
                 streakCard
                 // Clears the floating unlock pill (92 + 56) and the tab bar.
                 Color.clear.frame(height: 220)
@@ -163,6 +167,61 @@ struct HomeView: View {
             return "\(next.routine.name) commence \(RoutineSchedule.relative(next.start, from: now))"
         }
         return access.state.rules.isEmpty ? "Choisis les apps qui te distraient" : "\(access.state.rules.count) apps sous contrôle"
+    }
+
+    /// One step of the setup that is still missing, or nothing once all is done.
+    private var setupTask: SetupTask? {
+        if !access.authorized { return .permission }
+        if access.state.applications.isEmpty { return .distracting }
+        if access.state.allowedApplications.isEmpty { return .allowed }
+        if access.state.rules.isEmpty && access.state.routines.isEmpty { return .rule }
+        return nil
+    }
+
+    private func setupCard(_ task: SetupTask) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "person.badge.plus").foregroundStyle(SeuilTheme.accent)
+                Text("Termine ta configuration").font(.headline).foregroundStyle(SeuilTheme.accent)
+                Spacer()
+            }
+            Text(task.title).font(.title3.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .bottom, spacing: 14) {
+                Text(task.subtitle).font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button("Configurer") { task.open(access: access, onShowApps: onShowApps, onRoute: onRoute) }
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 16).padding(.vertical, 10)
+                    .background(Color.white.opacity(0.12), in: Capsule())
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
+            }
+        }
+        .glassCard()
+    }
+
+    /// What the hours spent scrolling are worth, at a rate the user sets.
+    private var analysesCard: some View {
+        let weekly = hours * 7 / 2 * Double(rate)
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Analyses").font(.headline).foregroundStyle(SeuilTheme.secondaryInk)
+                Spacer()
+            }
+            Text("Moitié moins d’écran, c’est \(Int(weekly.rounded())) € de ton temps repris chaque semaine.")
+                .font(.title3.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+            Divider().overlay(Color.white.opacity(0.08))
+            HStack {
+                Text("Ton heure vaut").font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
+                Spacer()
+                CountStepper(value: $rate, range: 5...200, step: 5)
+                Text("€/h").font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)
+            }
+        }
+        .glassCard()
     }
 
     private var streakCard: some View {
@@ -286,6 +345,37 @@ struct HomeView: View {
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.12)))
             }
             .buttonStyle(.plain)
+        }
+    }
+}
+
+/// The next thing to set up, shown on the home screen until nothing is left.
+enum SetupTask {
+    case permission, distracting, allowed, rule
+
+    var title: String {
+        switch self {
+        case .permission: return "Autorise Temps d’écran"
+        case .distracting: return "Choisis tes apps distrayantes"
+        case .allowed: return "Définis tes apps toujours autorisées"
+        case .rule: return "Crée ta première règle"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .permission: return "Sans cette autorisation, Seuil ne peut rien bloquer."
+        case .distracting: return "Ce sont elles que Seuil mettra sous contrôle."
+        case .allowed: return "Ces apps ne seront jamais bloquées."
+        case .rule: return "Une limite ou une routine, et tout se met en place."
+        }
+    }
+
+    @MainActor
+    func open(access: AccessController, onShowApps: () -> Void, onRoute: (SettingsRoute) -> Void) {
+        switch self {
+        case .permission: Task { await access.authorize() }
+        case .distracting, .allowed, .rule: onShowApps()
         }
     }
 }

@@ -114,7 +114,7 @@ final class AmbientPlayer: ObservableObject {
 /// Horizontal row of ambience bubbles, shown under the timer.
 struct AmbienceRow: View {
     @ObservedObject var player: AmbientPlayer
-    @EnvironmentObject private var store: ProStore
+    @ObservedObject private var store = ProStore.shared
     @Environment(\.requestPro) private var requestPro
 
     var body: some View {

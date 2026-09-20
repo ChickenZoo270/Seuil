@@ -6,6 +6,7 @@ import IntentionCore
 extension DeviceActivityReport.Context {
     static let home = Self("home")
     static let detail = Self("detail")
+    static let breakdown = Self("breakdown")
 }
 
 @main
@@ -13,6 +14,7 @@ struct SeuilReportExtension: DeviceActivityReportExtension {
     var body: some DeviceActivityReportScene {
         HomeReport { HomeReportView(model: $0) }
         DetailReport { DetailReportView(model: $0) }
+        BreakdownReport { BreakdownReportView(model: $0) }
     }
 }
 
@@ -27,6 +29,10 @@ struct AppUsage: Identifiable {
 struct ReportModel {
     var usage = DayUsage(hourlyMinutes: [], distractingMinutes: 0, pickups: 0, unlocks: 0, currentHour: 0)
     var apps: [AppUsage] = []
+    /// Day-over-day trend for the Home header arrow. The extension only ever sees
+    /// today's activity segments, so there is no honest source for this yet; it
+    /// stays nil (ScoreHeader hides the arrow) rather than showing a fake direction.
+    var trendUp: Bool?
     var scores: DailyScores { Scoring.scores(usage) }
 }
 
@@ -80,6 +86,14 @@ struct HomeReport: DeviceActivityReportScene {
 struct DetailReport: DeviceActivityReportScene {
     let context: DeviceActivityReport.Context = .detail
     let content: (ReportModel) -> DetailReportView
+    func makeConfiguration(representing data: DeviceActivityResults<DeviceActivityData>) async -> ReportModel {
+        await ReportBuilder.build(data)
+    }
+}
+
+struct BreakdownReport: DeviceActivityReportScene {
+    let context: DeviceActivityReport.Context = .breakdown
+    let content: (ReportModel) -> BreakdownReportView
     func makeConfiguration(representing data: DeviceActivityResults<DeviceActivityData>) async -> ReportModel {
         await ReportBuilder.build(data)
     }

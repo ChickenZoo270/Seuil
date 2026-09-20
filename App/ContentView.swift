@@ -67,7 +67,7 @@ extension EnvironmentValues {
 
 struct RootView: View {
     @ObservedObject var access: AccessController
-    @StateObject private var store = ProStore()
+    @ObservedObject private var store = ProStore.shared
     @State private var tab = MainTab.home
     @State private var showPaywall = false
     @State private var showDoors = false
@@ -122,6 +122,10 @@ struct RootView: View {
                 }
             }
             .presentationBackground(.black)
+            // A sheet is its own presentation: the store has to be handed over
+            // again, or every page reading it as an environment object dies.
+            .environmentObject(store)
+            .environment(\.requestPro, { showPaywall = true })
         }
     }
 }
