@@ -36,11 +36,17 @@ struct SettingsRowLabel: View {
                 Image(systemName: icon).font(.title3).foregroundStyle(SeuilTheme.secondaryInk).frame(width: 32)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.title3)
-                if let subtitle { Text(subtitle).font(.body).foregroundStyle(SeuilTheme.secondaryInk) }
+                Text(title).font(.title3).fixedSize(horizontal: false, vertical: true)
+                if let subtitle {
+                    Text(subtitle).font(.body).foregroundStyle(SeuilTheme.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
+            .layoutPriority(1)
             Spacer(minLength: 8)
-            if let value { Text(value).font(.body).foregroundStyle(SeuilTheme.secondaryInk) }
+            if let value {
+                Text(value).font(.body).foregroundStyle(SeuilTheme.secondaryInk).lineLimit(1).minimumScaleFactor(0.8)
+            }
             if let trailing { Image(systemName: trailing).font(.body.weight(.semibold)).foregroundStyle(SeuilTheme.secondaryInk) }
         }
         .padding(.horizontal, 20).padding(.vertical, 18)

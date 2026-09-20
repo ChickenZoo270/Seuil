@@ -57,6 +57,18 @@ extension AccessController {
         }
     }
 
+    /// Opens every blocked app for a while, once its challenge has been passed.
+    func openEverything(minutes: Int) {
+        let now = Date()
+        guard !state.preferences.isHardModeActive(now: now) else {
+            message = AppError.hardMode.localizedDescription
+            return
+        }
+        startOpenWindow(minutes: minutes, isPass: false)
+        mutate { $0.markDirty(now) }
+        message = "\(minutes) minutes sans blocage. Profite, puis reviens."
+    }
+
     /// Lifts every shield for an hour, once a week, whatever the rules or Hard Mode.
     func useEmergencyPass() {
         let now = Date()
@@ -64,12 +76,18 @@ extension AccessController {
             message = AppError.emergencyUsed.localizedDescription
             return
         }
-        let start = Date(timeIntervalSince1970: floor(now.timeIntervalSince1970))
-        let end = start.addingTimeInterval(TimeInterval(EmergencyPass.minutes * 60))
+        startOpenWindow(minutes: EmergencyPass.minutes, isPass: true)
+        mutate { $0.preferences.emergencyPassUsedAt = now }
+        message = "Pass d’urgence activé : toutes tes apps sont disponibles pendant 1 heure."
+    }
+
+    /// Registers the reblocking schedule first, so shields always come back.
+    private func startOpenWindow(minutes: Int, isPass: Bool) {
+        let start = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
+        let end = start.addingTimeInterval(TimeInterval(minutes * 60))
         let id = FocusMonitoring.emergencyPrefix + UUID().uuidString
         let components: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
         do {
-            // Registered before lifting anything, so the shields always come back.
             try center.startMonitoring(.init(id), during: DeviceActivitySchedule(
                 intervalStart: Calendar.current.dateComponents(components, from: start),
                 intervalEnd: Calendar.current.dateComponents(components, from: end), repeats: false))
@@ -78,13 +96,13 @@ extension AccessController {
             return
         }
         mutate { current in
-            current.emergency = EmergencyWindow(id: id, endsAt: end)
-            current.preferences.emergencyPassUsedAt = now
+            current.emergency = EmergencyWindow(id: id, endsAt: end, isPass: isPass)
             current.pendingApplication = nil
+            current.session = nil
         }
-        NotificationScheduler.once(id: "emergency.end", after: TimeInterval(EmergencyPass.minutes * 60),
-                                   title: "Pass d’urgence terminé", body: "Tes règles s’appliquent de nouveau.")
-        message = "Pass d’urgence activé : toutes tes apps sont disponibles pendant 1 heure."
+        NotificationScheduler.once(id: "emergency.end", after: TimeInterval(minutes * 60),
+                                   title: isPass ? "Pass d’urgence terminé" : "Fin du déblocage",
+                                   body: "Tes règles s’appliquent de nouveau.")
     }
 
     var isEmergencyPassAvailable: Bool {

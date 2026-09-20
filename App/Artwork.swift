@@ -133,9 +133,9 @@ struct RuleCard<Accessory: View>: View {
                 Spacer()
                 HStack(alignment: .bottom) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(caption).font(.subheadline).opacity(0.75)
-                        Text(title).font(.title3.weight(.semibold)).lineLimit(2)
-                        Text(subtitle).font(.subheadline).opacity(0.7)
+                        Text(caption).font(.subheadline).opacity(0.75).lineLimit(1).minimumScaleFactor(0.8)
+                        Text(title).font(.title3.weight(.semibold)).lineLimit(2).minimumScaleFactor(0.85)
+                        Text(subtitle).font(.subheadline).opacity(0.7).lineLimit(1).minimumScaleFactor(0.8)
                     }
                     Spacer(minLength: 4)
                     accessory

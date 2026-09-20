@@ -12,6 +12,7 @@ struct AppsView: View {
     @State private var editing: Routine?
     @State private var showLimits = false
     @State private var picking: AppList?
+    @State private var unlockingAll = false
     @State private var selection = FamilyActivitySelection()
 
     enum AppList: String, Identifiable {
@@ -60,6 +61,27 @@ struct AppsView: View {
             .presentationBackground(.black)
         }
         .sheet(isPresented: $showLimits) { LimitsSheet(access: access) }
+        .sheet(isPresented: $unlockingAll) {
+            NavigationStack {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Débloquer toutes tes apps pendant 15 minutes").font(.title3.weight(.semibold))
+                        Text("Un seul défi, puis tout s’ouvre. La journée compte comme non tenue.")
+                            .foregroundStyle(SeuilTheme.secondaryInk)
+                        ChallengeView(preferences: access.state.preferences, minutes: 15) {
+                            access.openEverything(minutes: 15)
+                            unlockingAll = false
+                        }
+                    }
+                    .padding(20)
+                }
+                .background(GlowBackground())
+                .navigationTitle("Tout débloquer")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fermer") { unlockingAll = false } } }
+            }
+            .presentationBackground(.black)
+        }
         .familyActivityPicker(isPresented: Binding(get: { picking != nil }, set: { if !$0 { commitPicking() } }),
                               selection: $selection)
     }
@@ -70,7 +92,15 @@ struct AppsView: View {
     private var blockedSection: some View {
         let blocked = access.blockedApplications
         VStack(alignment: .leading, spacing: 14) {
-            Text("Apps bloquées").font(.title3.weight(.semibold))
+            HStack {
+                Text("Apps bloquées").font(.title3.weight(.semibold))
+                Spacer()
+                if !blocked.isEmpty {
+                    Button("Tout débloquer") { unlockingAll = true }
+                        .font(.headline).foregroundStyle(SeuilTheme.accent)
+                        .accessibilityIdentifier("apps.unlockAll")
+                }
+            }
             if blocked.isEmpty {
                 Text("Toutes les apps sont disponibles.")
                     .foregroundStyle(SeuilTheme.secondaryInk)

@@ -49,7 +49,7 @@ final class SeuilUITests: XCTestCase {
         XCTAssertTrue(heading.label.contains("besoin"))
         primary.tap()
         XCTAssertTrue(heading.label.contains("engager"))
-        XCTAssertTrue(app.switches["Hard Mode"].exists)
+        XCTAssertTrue(app.staticTexts["Disponible avec Seuil Pro"].exists, "Hard Mode is a Pro feature")
         primary.tap()
 
         XCTAssertTrue(heading.label.contains("mériter"))

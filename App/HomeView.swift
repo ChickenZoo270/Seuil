@@ -130,6 +130,7 @@ struct HomeView: View {
                 HStack(spacing: 14) {
                     Image(systemName: "shield.fill").font(.title).foregroundStyle(SeuilTheme.accentGradient)
                     Text(nextRuleText).font(.title3.weight(.semibold)).multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                 }
             }

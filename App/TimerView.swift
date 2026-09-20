@@ -82,6 +82,7 @@ struct TimerView: View {
                     .accessibilityLabel("Moins")
                 Text(Scoring.duration(Double(minutes)))
                     .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
+                    .lineLimit(1).minimumScaleFactor(0.6)
                     .frame(maxWidth: .infinity, minHeight: 60)
                     .background(Color.white.opacity(0.06), in: Capsule())
                 CircleIconButton(symbol: "plus", size: 60) { minutes = min(24 * 60, minutes + step(for: minutes)) }
@@ -144,7 +145,7 @@ struct PresetCard: View {
         ZStack(alignment: .bottomLeading) {
             Artwork(key: preset.artwork)
             VStack(alignment: .leading, spacing: 8) {
-                Text(preset.name).font(.title2.weight(.bold))
+                Text(preset.name).font(.title2.weight(.bold)).lineLimit(2).minimumScaleFactor(0.85)
                 if let subtitle = preset.subtitle { Text(subtitle).font(.subheadline).opacity(0.8) }
                 Label(Scoring.duration(Double(preset.minutes)), systemImage: "play.fill")
                     .font(.headline)

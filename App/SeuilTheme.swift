@@ -9,8 +9,6 @@ enum SeuilTheme {
     static let accent = Color(red: 0.66, green: 0.95, blue: 0.80)
     static let onAccent = Color.black
     static let glow = Color(red: 0.36, green: 0.55, blue: 0.45)
-    static let card = Color.white.opacity(0.06)
-    static let danger = Color(red: 0.98, green: 0.36, blue: 0.47)
     static let success = Color(red: 0.20, green: 0.85, blue: 0.70)
     static let accentGradient = LinearGradient(
         colors: [Color(red: 0.86, green: 0.96, blue: 0.62), Color(red: 0.66, green: 0.95, blue: 0.80), Color(red: 0.55, green: 0.90, blue: 0.95)],

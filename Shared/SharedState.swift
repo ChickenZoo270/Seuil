@@ -141,6 +141,23 @@ struct Routine: Codable, Identifiable {
 struct EmergencyWindow: Codable {
     let id: String
     let endsAt: Date
+    /// True for the weekly pass, false for an "unlock everything" earned with a challenge.
+    var isPass = true
+
+    init(id: String, endsAt: Date, isPass: Bool = true) {
+        self.id = id
+        self.endsAt = endsAt
+        self.isPass = isPass
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, endsAt, isPass }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        endsAt = try c.decode(Date.self, forKey: .endsAt)
+        isPass = try c.decodeIfPresent(Bool.self, forKey: .isPass) ?? true
+    }
 }
 
 /// "Block everything now" session started from the timer.
