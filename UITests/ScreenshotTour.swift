@@ -8,6 +8,7 @@ final class ScreenshotTour: XCTestCase {
     private let timeout: TimeInterval = 10
     private var counter = 0
     private var skipped: [String] = []
+    private var crashed: [String] = []
     private var outputDir: URL?
 
     override func setUp() {
@@ -21,6 +22,7 @@ final class ScreenshotTour: XCTestCase {
 
     override func tearDown() {
         if !skipped.isEmpty { print("SKIPPED: \(skipped.joined(separator: ", "))") }
+        if !crashed.isEmpty { XCTFail("App crashed on: \(crashed.joined(separator: ", "))") }
     }
 
     func testCaptureEveryScreen() {
@@ -155,6 +157,7 @@ final class ScreenshotTour: XCTestCase {
         visit(app, name: "settings-doors", label: "Mes portes")
 
         // Paywall, reached from the "Essayer Seuil Pro" button on the settings hero card.
+        restartIfNeeded(app, before: "paywall")
         let pro = app.buttons["settings.tryPro"]
         if pro.waitForExistence(timeout: 4) {
             pro.tap()
@@ -188,10 +191,21 @@ final class ScreenshotTour: XCTestCase {
     }
 
     private func visit(_ app: XCUIApplication, name: String, element: XCUIElement) {
+        restartIfNeeded(app, before: name)
         guard element.waitForExistence(timeout: timeout) else { skipped.append(name); return }
         element.tap()
         shoot(app, name)
+        guard app.state == .runningForeground else { crashed.append(name); return }
         goBack(app)
+    }
+
+    /// A screen that crashes the app must not cost us every screen after it:
+    /// relaunch straight back into the settings and carry on.
+    private func restartIfNeeded(_ app: XCUIApplication, before name: String) {
+        guard app.state != .runningForeground else { return }
+        app.launchArguments = ["--skip-onboarding", "--open-settings"]
+        app.launch()
+        _ = app.descendants(matching: .any).matching(identifier: "settings.waitingRoom").firstMatch.waitForExistence(timeout: timeout)
     }
 
     private func goBack(_ app: XCUIApplication) {

@@ -57,6 +57,21 @@ jobs:
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= 2>&1 \
             | tee simulator-evidence/uitests.log \
             | grep -E "Test Case|error:|failed|passed|TEST (SUCCEEDED|FAILED)"
+      # A screen that crashes the app leaves an .ips report on the runner; without
+      # it there is no way to tell what the app died on from a Windows machine.
+      - name: Collect crash reports
+        if: always()
+        run: |
+          mkdir -p simulator-evidence/crashes
+          find "$HOME/Library/Logs/DiagnosticReports" "$HOME/Library/Developer/CoreSimulator/Devices" \
+            -name '*.ips' -print0 2>/dev/null | xargs -0 -I{} cp {} simulator-evidence/crashes/ || true
+          ls -1 simulator-evidence/crashes || true
+          for report in simulator-evidence/crashes/*Intention*.ips; do
+            [ -e "$report" ] || continue
+            echo "=== $report"
+            head -c 4000 "$report"
+            echo
+          done
       - name: Preserve simulator evidence (not a Screen Time device test)
         if: always()
         uses: actions/upload-artifact@v4

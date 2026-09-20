@@ -130,9 +130,9 @@ struct AutofocusView: View {
                         Text(UsageAlert.message(minutes: first, appName: "Instagram").body).font(.subheadline)
                     }
                 }
-                .padding(16)
+                .padding(14)
                 .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 26))
-                .padding(.horizontal, -30)
+                .padding(.horizontal, 14)
                 .padding(.top, 110)
             }
             SettingsCard {
