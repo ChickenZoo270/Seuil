@@ -8,9 +8,10 @@ final class SeuilUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(onboarded: Bool) -> XCUIApplication {
+    private func launch(onboarded: Bool, openSettings: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [onboarded ? "--skip-onboarding" : "--reset-onboarding"]
+        if openSettings { app.launchArguments.append("--open-settings") }
         app.launch()
         return app
     }
@@ -66,7 +67,7 @@ final class SeuilUITests: XCTestCase {
     }
 
     func testMathChallengeCanBeSolved() {
-        let app = launch(onboarded: true)
+        let app = launch(onboarded: true, openSettings: true)
         openSettings(app)
         selectChallenge("Jeux de maths", in: app)
         app.buttons["settings.tryChallenge"].tap()
@@ -87,7 +88,7 @@ final class SeuilUITests: XCTestCase {
     }
 
     func testWrongMathAnswerGivesNewProblems() {
-        let app = launch(onboarded: true)
+        let app = launch(onboarded: true, openSettings: true)
         openSettings(app)
         selectChallenge("Jeux de maths", in: app)
         app.buttons["settings.tryChallenge"].tap()
@@ -107,7 +108,7 @@ final class SeuilUITests: XCTestCase {
     }
 
     func testTypingChallengeCanBeSolved() {
-        let app = launch(onboarded: true)
+        let app = launch(onboarded: true, openSettings: true)
         openSettings(app)
         selectChallenge("Phrase à recopier", in: app)
         app.buttons["settings.tryChallenge"].tap()
@@ -158,7 +159,7 @@ final class SeuilUITests: XCTestCase {
     }
 
     func testPauseChallengeUnlocksAfterCountdown() {
-        let app = launch(onboarded: true)
+        let app = launch(onboarded: true, openSettings: true)
         openSettings(app)
         selectChallenge("Exercices de respiration", in: app)
         app.buttons["Facile"].tap()
@@ -176,7 +177,7 @@ final class SeuilUITests: XCTestCase {
     }
 
     func testReasonChallengeAcceptsConcreteAndRefusesScrolling() {
-        let app = launch(onboarded: true)
+        let app = launch(onboarded: true, openSettings: true)
         openSettings(app)
         selectChallenge("Motif valable", in: app)
         app.buttons["settings.tryChallenge"].tap()
@@ -200,7 +201,7 @@ final class SeuilUITests: XCTestCase {
     }
 
     func testPuzzleChallengeInOrder() {
-        let app = launch(onboarded: true)
+        let app = launch(onboarded: true, openSettings: true)
         openSettings(app)
         selectChallenge("Jeux de puzzle", in: app)
         app.buttons["Facile"].tap()
@@ -213,14 +214,8 @@ final class SeuilUITests: XCTestCase {
         selectChallenge("Jeux de maths", in: app)
     }
 
-    /// Profile menu › Paramètres › Salle d’attente, where challenges are chosen.
+    /// Opens the waiting room, where challenges are chosen.
     private func openSettings(_ app: XCUIApplication) {
-        let profile = app.buttons["home.settings"]
-        XCTAssertTrue(profile.waitForExistence(timeout: timeout))
-        profile.tap()
-        let settings = app.descendants(matching: .any).matching(identifier: "menu.settings").firstMatch
-        XCTAssertTrue(settings.waitForExistence(timeout: timeout))
-        settings.tap()
         let waitingRoom = app.descendants(matching: .any).matching(identifier: "settings.waitingRoom").firstMatch
         XCTAssertTrue(waitingRoom.waitForExistence(timeout: timeout))
         waitingRoom.tap()

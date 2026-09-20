@@ -44,7 +44,7 @@ struct TimerView: View {
                 if !access.message.isEmpty {
                     Text(access.message).font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
                 }
-                Color.clear.frame(height: 100)
+                Color.clear.frame(height: 150)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)

@@ -53,7 +53,7 @@ struct HomeView: View {
                 }
                 nextRuleCard
                 streakCard
-                Color.clear.frame(height: 110)
+                Color.clear.frame(height: 150)
             }
             .padding(.horizontal, 20)
         }

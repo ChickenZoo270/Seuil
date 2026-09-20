@@ -36,7 +36,7 @@ struct AppsView: View {
                 if !access.message.isEmpty {
                     Text(access.message).font(.footnote).foregroundStyle(SeuilTheme.secondaryInk)
                 }
-                Color.clear.frame(height: 100)
+                Color.clear.frame(height: 150)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -208,8 +208,9 @@ struct AppsView: View {
                 }
                 .frame(width: 150, height: 150)
                 .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 34))
-                HStack(spacing: 6) {
+                VStack(spacing: 6) {
                     Text(title).font(.headline).multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                     if pro, !store.isPro { ProBadge() }
                 }
                 Text("\(tokens.count) élément\(tokens.count > 1 ? "s" : "")").font(.subheadline).foregroundStyle(SeuilTheme.secondaryInk)

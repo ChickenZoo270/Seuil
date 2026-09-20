@@ -100,7 +100,11 @@ struct RootView: View {
         .onChange(of: access.state.pendingApplication) { _, pending in
             if let pending { unlocking = pending }
         }
-        .onAppear { if let pending = access.state.pendingApplication { unlocking = pending } }
+        .onAppear {
+            if let pending = access.state.pendingApplication { unlocking = pending }
+            // UI tests jump straight to the settings instead of driving the profile menu.
+            if ProcessInfo.processInfo.arguments.contains("--open-settings") { settingsRoute = .settings }
+        }
         .sheet(item: Binding(get: { unlocking.map(UnlockTarget.init) },
                              set: { if $0 == nil { unlocking = nil; access.dismissPending() } })) { target in
             UnlockSheet(access: access, application: target.token) {
