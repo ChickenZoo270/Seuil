@@ -127,14 +127,11 @@ final class ScreenshotTour: XCTestCase {
         app.swipeDown()
     }
 
+    /// Relaunches straight into the settings: driving the profile menu proved flaky.
     private func walkSettings(_ app: XCUIApplication) {
-        let home = app.buttons["Accueil"]
-        if home.waitForExistence(timeout: timeout) { home.tap() }
-
-        openProfileMenu(app)
-        let settingsRow = app.descendants(matching: .any).matching(identifier: "menu.settings").firstMatch
-        guard settingsRow.waitForExistence(timeout: timeout) else { skipped.append("settings-root"); return }
-        settingsRow.tap()
+        app.terminate()
+        app.launchArguments = ["--skip-onboarding", "--open-settings"]
+        app.launch()
         guard app.descendants(matching: .any).matching(identifier: "settings.waitingRoom").firstMatch.waitForExistence(timeout: timeout) else {
             skipped.append("settings-root"); return
         }
@@ -146,28 +143,39 @@ final class ScreenshotTour: XCTestCase {
         visit(app, name: "settings-notifications", label: "Notifications")
         visit(app, name: "settings-account", label: "Mon compte")
         visit(app, name: "settings-apps-distracting", label: "Distrayantes")
-        visit(app, name: "settings-emergency-pass", label: "Pass d’urgence")
+        visit(app, name: "settings-emergency-ticket", label: "Pass d’urgence")
+        visit(app, name: "settings-support-chat", label: "Discuter avec l’assistance")
         visit(app, name: "settings-help", label: "Centre d’aide")
         visit(app, name: "settings-doors", label: "Mes portes")
 
+        // Paywall, reached from the "Essayer Seuil Pro" button on the settings hero card.
+        let pro = app.buttons["settings.tryPro"]
+        if pro.waitForExistence(timeout: 4) {
+            pro.tap()
+            if app.buttons["paywall.cta"].waitForExistence(timeout: timeout) {
+                shoot(app, "paywall")
+                app.buttons["paywall.close"].tap()
+            } else {
+                skipped.append("paywall")
+            }
+        } else {
+            skipped.append("paywall")
+        }
+
         let done = app.buttons["Terminé"]
         if done.waitForExistence(timeout: timeout) { done.tap() }
+
+        // Doors gallery, opened from the home hero.
+        let hero = app.buttons["home.hero"]
+        if hero.waitForExistence(timeout: timeout) {
+            hero.tap()
+            shoot(app, "doors-gallery")
+            app.buttons["Fermer"].firstMatch.tap()
+        } else {
+            skipped.append("doors-gallery")
+        }
     }
 
-    // MARK: Helpers
-
-    private func openProfileMenu(_ app: XCUIApplication) {
-        let profile = app.buttons["home.settings"]
-        if profile.waitForExistence(timeout: timeout) { profile.tap() }
-    }
-
-    /// The menu closes on a tap outside it; this coordinate avoids the menu
-    /// (top-trailing) and the floating tab bar (bottom-centre).
-    private func closeProfileMenu(_ app: XCUIApplication) {
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.45)).tap()
-    }
-
-    /// Taps a row reachable from the current screen, shoots it, then goes back.
     private func visit(_ app: XCUIApplication, name: String, label: String) {
         let row = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", label)).firstMatch
         visit(app, name: name, element: row)
