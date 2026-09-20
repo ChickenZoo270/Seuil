@@ -2,14 +2,14 @@ import Foundation
 
 /// Features reserved for Seuil Pro.
 public enum ProFeature: String, CaseIterable, Sendable {
-    case strictMode, unlimitedRules, allowOnly, scoreHistory, messagePacks
+    case strictMode, unlimitedRules, allowOnly, ambiences, messagePacks
 
     public var title: String {
         switch self {
         case .strictMode: return "Mode strict"
         case .unlimitedRules: return "Règles illimitées"
         case .allowOnly: return "Autoriser uniquement"
-        case .scoreHistory: return "Score avec historique"
+        case .ambiences: return "Ambiances sonores"
         case .messagePacks: return "Tous les écrans de blocage"
         }
     }
@@ -19,7 +19,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .strictMode: return "Sans issue. Impossible de désactiver Seuil."
         case .unlimitedRules: return "Autant de routines et de limites que tu veux."
         case .allowOnly: return "Bloque tout sauf une liste d’apps choisies."
-        case .scoreHistory: return "Revois tes journées passées, pas seulement aujourd’hui."
+        case .ambiences: return "Pluie, océan, vent et nuit d’été, générés sur ton iPhone."
         case .messagePacks: return "Haïkus, piques, blagues et infos insolites."
         }
     }
@@ -29,7 +29,7 @@ public enum ProFeature: String, CaseIterable, Sendable {
         case .strictMode: return "lock.shield.fill"
         case .unlimitedRules: return "arrow.triangle.branch"
         case .allowOnly: return "checkmark.seal.fill"
-        case .scoreHistory: return "clock.arrow.circlepath"
+        case .ambiences: return "waveform"
         case .messagePacks: return "text.bubble.fill"
         }
     }

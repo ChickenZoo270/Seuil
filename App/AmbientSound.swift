@@ -114,14 +114,22 @@ final class AmbientPlayer: ObservableObject {
 /// Horizontal row of ambience bubbles, shown under the timer.
 struct AmbienceRow: View {
     @ObservedObject var player: AmbientPlayer
+    @EnvironmentObject private var store: ProStore
+    @Environment(\.requestPro) private var requestPro
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SectionTitle(title: "Ambiances", subtitle: "Des sons générés sur ton iPhone pour t’aider à te concentrer.")
+            HStack(spacing: 8) {
+                SectionTitle(title: "Ambiances", subtitle: "Des sons générés sur ton iPhone pour t’aider à te concentrer.")
+                if !store.isPro { ProBadge() }
+            }
             ScrollView(.horizontal) {
                 HStack(spacing: 16) {
                     ForEach(Ambience.allCases) { ambience in
-                        Button { player.toggle(ambience) } label: {
+                        Button {
+                            guard store.isPro else { requestPro(); return }
+                            player.toggle(ambience)
+                        } label: {
                             VStack(spacing: 10) {
                                 ZStack {
                                     Circle()
